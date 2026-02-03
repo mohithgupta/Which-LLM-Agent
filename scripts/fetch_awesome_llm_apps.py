@@ -12,6 +12,7 @@ Output is structured data suitable for MkDocs documentation generation.
 """
 
 import argparse
+import ast
 import logging
 import os
 import re
@@ -448,6 +449,125 @@ def convert_markdown_to_html(markdown_content: str, extras: Optional[List[str]] 
         return html
     except Exception as e:
         logger.error(f"Failed to convert markdown to HTML: {e}")
+        raise
+
+
+def extract_python_metadata(file_path: str) -> Dict[str, Any]:
+    """
+    Extract function and class metadata from a Python file using AST parsing.
+
+    This function parses a Python file using the Abstract Syntax Tree (AST) module
+    and extracts structured information about functions and classes defined in the file.
+    This is useful for generating documentation or understanding code structure without
+    executing the code.
+
+    Args:
+        file_path: Path to the Python file to parse
+
+    Returns:
+        Dictionary containing:
+            - 'functions': List of function metadata dicts with keys:
+                - 'name': Function name
+                - 'lineno': Line number where function is defined
+                - 'args': List of argument names
+                - 'docstring': Function docstring (if present)
+            - 'classes': List of class metadata dicts with keys:
+                - 'name': Class name
+                - 'lineno': Line number where class is defined
+                - 'docstring': Class docstring (if present)
+                - 'methods': List of method metadata (same structure as functions)
+            - 'file_path': Path to the file that was parsed
+
+    Raises:
+        FileNotFoundError: If the file_path does not exist
+        SyntaxError: If the Python file has syntax errors and cannot be parsed
+
+    Example:
+        >>> metadata = extract_python_metadata('my_module.py')
+        >>> print(f"Found {len(metadata['functions'])} functions")
+        >>> for func in metadata['functions']:
+        ...     print(f"  - {func['name']} at line {func['lineno']}")
+    """
+    logger = logging.getLogger(__name__)
+    logger.debug(f"Extracting Python metadata from: {file_path}")
+
+    # Validate file exists
+    python_file = Path(file_path)
+    if not python_file.exists():
+        logger.error(f"Python file not found: {file_path}")
+        raise FileNotFoundError(f"Python file not found: {file_path}")
+
+    # Initialize result structure
+    metadata = {
+        'functions': [],
+        'classes': [],
+        'file_path': str(python_file)
+    }
+
+    try:
+        # Read the file content
+        content = python_file.read_text(encoding='utf-8')
+
+        # Parse the AST
+        tree = ast.parse(content, filename=str(python_file))
+
+        # Track methods to exclude them from top-level functions
+        method_names = set()
+
+        # Extract classes first to track their methods
+        for node in tree.body:
+            if isinstance(node, ast.ClassDef):
+                class_info = {
+                    'name': node.name,
+                    'lineno': node.lineno,
+                    'docstring': ast.get_docstring(node),
+                    'methods': []
+                }
+
+                # Extract methods from the class
+                for item in node.body:
+                    if isinstance(item, ast.FunctionDef):
+                        method_names.add(item.name)
+                        method_info = {
+                            'name': item.name,
+                            'lineno': item.lineno,
+                            'args': [arg.arg for arg in item.args.args],
+                            'docstring': ast.get_docstring(item)
+                        }
+                        class_info['methods'].append(method_info)
+                        logger.debug(f"Found method '{item.name}' in class '{node.name}'")
+
+                metadata['classes'].append(class_info)
+                logger.debug(f"Found class '{node.name}' at line {node.lineno}")
+
+        # Extract top-level function definitions (excluding methods)
+        for node in tree.body:
+            if isinstance(node, ast.FunctionDef) and node.name not in method_names:
+                func_info = {
+                    'name': node.name,
+                    'lineno': node.lineno,
+                    'args': [arg.arg for arg in node.args.args],
+                    'docstring': ast.get_docstring(node)
+                }
+                metadata['functions'].append(func_info)
+                logger.debug(f"Found function '{node.name}' at line {node.lineno}")
+
+        # Log summary
+        logger.info(
+            f"Extracted metadata: {len(metadata['functions'])} functions, "
+            f"{len(metadata['classes'])} classes from {file_path}"
+        )
+
+        return metadata
+
+    except SyntaxError as e:
+        logger.error(f"Syntax error in {file_path}: {e}")
+        raise
+    except IOError as e:
+        logger.error(f"Failed to read file {file_path}: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error extracting metadata from {file_path}: {e}")
         raise
 
 
