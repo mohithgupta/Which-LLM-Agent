@@ -452,20 +452,21 @@ def convert_markdown_to_html(markdown_content: str, extras: Optional[List[str]] 
         raise
 
 
-def extract_python_metadata(file_path: str) -> Dict[str, Any]:
+def extract_python_metadata(file_path: str) -> Optional[Dict[str, Any]]:
     """
-    Extract function and class metadata from a Python file using AST parsing.
+    Extract metadata from a Python file using AST parsing.
 
     This function parses a Python file using the Abstract Syntax Tree (AST) module
-    and extracts structured information about functions and classes defined in the file.
-    This is useful for generating documentation or understanding code structure without
-    executing the code.
+    and extracts structured information about the module, functions, and classes.
+    It includes module-level and function/class docstrings to generate descriptions.
 
     Args:
         file_path: Path to the Python file to parse
 
     Returns:
         Dictionary containing:
+            - 'name': Module/file name (without extension)
+            - 'description': Module description extracted from docstring (may be None)
             - 'functions': List of function metadata dicts with keys:
                 - 'name': Function name
                 - 'lineno': Line number where function is defined
@@ -477,16 +478,14 @@ def extract_python_metadata(file_path: str) -> Dict[str, Any]:
                 - 'docstring': Class docstring (if present)
                 - 'methods': List of method metadata (same structure as functions)
             - 'file_path': Path to the file that was parsed
-
-    Raises:
-        FileNotFoundError: If the file_path does not exist
-        SyntaxError: If the Python file has syntax errors and cannot be parsed
+        Returns None if the file cannot be parsed (e.g., not a valid Python file)
 
     Example:
         >>> metadata = extract_python_metadata('my_module.py')
-        >>> print(f"Found {len(metadata['functions'])} functions")
-        >>> for func in metadata['functions']:
-        ...     print(f"  - {func['name']} at line {func['lineno']}")
+        >>> if metadata:
+        ...     print(f"Found {len(metadata['functions'])} functions")
+        ...     for func in metadata['functions']:
+        ...         print(f"  - {func['name']} at line {func['lineno']}")
     """
     logger = logging.getLogger(__name__)
     logger.debug(f"Extracting Python metadata from: {file_path}")
@@ -495,10 +494,12 @@ def extract_python_metadata(file_path: str) -> Dict[str, Any]:
     python_file = Path(file_path)
     if not python_file.exists():
         logger.error(f"Python file not found: {file_path}")
-        raise FileNotFoundError(f"Python file not found: {file_path}")
+        return None
 
-    # Initialize result structure
+    # Initialize result structure with name and description
     metadata = {
+        'name': python_file.stem,
+        'description': None,
         'functions': [],
         'classes': [],
         'file_path': str(python_file)
@@ -510,6 +511,21 @@ def extract_python_metadata(file_path: str) -> Dict[str, Any]:
 
         # Parse the AST
         tree = ast.parse(content, filename=str(python_file))
+
+        # Extract module-level docstring as the primary description
+        module_docstring = ast.get_docstring(tree)
+        if module_docstring:
+            # Use the first line or first sentence as the description
+            description_lines = module_docstring.strip().split('\n')
+            if description_lines:
+                # Take the first non-empty line as the description
+                for line in description_lines:
+                    line = line.strip()
+                    if line:
+                        # Truncate to a reasonable length if needed
+                        metadata['description'] = line[:200] + '...' if len(line) > 200 else line
+                        break
+            logger.debug(f"Extracted module docstring as description")
 
         # Track methods to exclude them from top-level functions
         method_names = set()
@@ -540,6 +556,16 @@ def extract_python_metadata(file_path: str) -> Dict[str, Any]:
                 metadata['classes'].append(class_info)
                 logger.debug(f"Found class '{node.name}' at line {node.lineno}")
 
+                # If we don't have a description yet, try using the first class's docstring
+                if not metadata['description'] and class_info['docstring']:
+                    desc_lines = class_info['docstring'].strip().split('\n')
+                    if desc_lines:
+                        for line in desc_lines:
+                            line = line.strip()
+                            if line:
+                                metadata['description'] = line[:200] + '...' if len(line) > 200 else line
+                                break
+
         # Extract top-level function definitions (excluding methods)
         for node in tree.body:
             if isinstance(node, ast.FunctionDef) and node.name not in method_names:
@@ -552,6 +578,16 @@ def extract_python_metadata(file_path: str) -> Dict[str, Any]:
                 metadata['functions'].append(func_info)
                 logger.debug(f"Found function '{node.name}' at line {node.lineno}")
 
+                # If we still don't have a description, try the main function's docstring
+                if not metadata['description'] and node.name == 'main' and func_info['docstring']:
+                    desc_lines = func_info['docstring'].strip().split('\n')
+                    if desc_lines:
+                        for line in desc_lines:
+                            line = line.strip()
+                            if line:
+                                metadata['description'] = line[:200] + '...' if len(line) > 200 else line
+                                break
+
         # Log summary
         logger.info(
             f"Extracted metadata: {len(metadata['functions'])} functions, "
@@ -561,14 +597,16 @@ def extract_python_metadata(file_path: str) -> Dict[str, Any]:
         return metadata
 
     except SyntaxError as e:
-        logger.error(f"Syntax error in {file_path}: {e}")
-        raise
+        logger.warning(f"Syntax error in {file_path}: {e}. Returning minimal metadata.")
+        # Return minimal metadata dict instead of None
+        return metadata
     except IOError as e:
         logger.error(f"Failed to read file {file_path}: {e}")
-        raise
+        return None
     except Exception as e:
         logger.error(f"Unexpected error extracting metadata from {file_path}: {e}")
-        raise
+        # Return minimal metadata dict instead of None for unexpected errors
+        return metadata
 
 
 def main() -> int:
