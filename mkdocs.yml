@@ -112,14 +112,15 @@ extra:
       name: GitHub
 
 # Extra CSS and JS (optional - add files when needed)
-# extra_css:
-#   - stylesheets/extra.css
+extra_css:
+  - stylesheets/extra.css
 # extra_javascript:
 #   - javascripts/extra.js
 
 # Build directories
 exclude_docs: |
   /.*
+  /awesome-llm-apps/README.md
 
 # Validation
 validation:
