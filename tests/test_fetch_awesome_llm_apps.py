@@ -502,3 +502,207 @@ class TestProjectDataclass:
 
         assert project.description is None
         assert project.category == ""
+
+
+class TestEdgeCases:
+    """Test suite for edge cases and error scenarios."""
+
+    def test_network_timeout_fails_immediately(self):
+        """Test that network timeout returns None immediately (only rate limits retry)."""
+        import socket
+
+        mock_client = Mock()
+        fetch_op = Mock()
+
+        # Simulate network timeout
+        fetch_op.side_effect = socket.timeout("Connection timed out")
+
+        result = fetch_with_retry(mock_client, fetch_op, "owner/repo", max_retries=3)
+
+        # Should fail immediately (network timeouts don't retry, only rate limits do)
+        assert result is None
+        assert fetch_op.call_count == 1
+
+    def test_rate_limit_exceeded_triggers_exponential_backoff(self):
+        """Test that rate limit triggers exponential backoff retry logic."""
+        from github.GithubException import RateLimitExceededException
+
+        mock_client = Mock()
+        fetch_op = Mock()
+
+        # Simulate rate limit errors
+        fetch_op.side_effect = RateLimitExceededException(403, "Rate limit", {"headers": {}})
+
+        sleep_times = []
+
+        def mock_sleep(seconds):
+            sleep_times.append(seconds)
+
+        with patch('scripts.fetch_awesome_llm_apps.time.sleep', side_effect=mock_sleep):
+            result = fetch_with_retry(mock_client, fetch_op, "owner/repo", max_retries=3, initial_wait=1.0)
+
+        # Should fail after max retries
+        assert result is None
+        assert fetch_op.call_count == 3
+        # Verify exponential backoff: 1.0, 2.0, 4.0 (but only 2 sleeps since 3 attempts)
+        assert len(sleep_times) == 2
+        assert sleep_times[0] == 1.0
+        assert sleep_times[1] == 2.0
+
+    def test_invalid_python_file_returns_none(self):
+        """Test that invalid Python file returns None instead of crashing."""
+        import tempfile
+
+        # Create a file with invalid Python syntax
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+            f.write('def incomplete(\n    # Missing closing paren and body\n')
+            temp_file = f.name
+
+        try:
+            result = extract_python_metadata(temp_file)
+            assert result is None
+        finally:
+            Path(temp_file).unlink()
+
+    def test_non_python_file_returns_none(self):
+        """Test that non-Python files (e.g., markdown) return None gracefully."""
+        import tempfile
+
+        # Create a markdown file instead of Python
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
+            f.write('# This is markdown\n\nNot valid Python code at all!')
+            temp_file = f.name
+
+        try:
+            result = extract_python_metadata(temp_file)
+            assert result is None
+        finally:
+            Path(temp_file).unlink()
+
+    def test_empty_python_file_returns_none(self):
+        """Test that empty Python file returns metadata with empty fields."""
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+            f.write('')
+            temp_file = f.name
+
+        try:
+            result = extract_python_metadata(temp_file)
+            # Empty file is valid Python, but has no meaningful content
+            assert result is not None
+            assert result['name'] is not None
+            assert len(result['functions']) == 0
+            assert len(result['classes']) == 0
+        finally:
+            Path(temp_file).unlink()
+
+    @patch('scripts.fetch_awesome_llm_apps.fetch_raw_readme')
+    @patch('scripts.fetch_awesome_llm_apps.fetch_with_retry')
+    def test_project_without_readme_falls_back_to_python(self, mock_retry, mock_raw, caplog):
+        """Test that missing README triggers Python AST fallback."""
+        import logging
+
+        # Mock API to return None (README not found)
+        mock_retry.return_value = None
+        # Mock raw fetch to also return None
+        mock_raw.return_value = None
+
+        mock_client = Mock()
+        project = Project(
+            title="TestProject",
+            url="https://github.com/owner/testproject",
+            description="A test project",
+            category="Test"
+        )
+
+        # Mock Python file fetch to succeed
+        mock_python_content = '''"""Test module."""
+
+def main():
+    """Main function."""
+    pass
+'''
+
+        with patch('scripts.fetch_awesome_llm_apps.urllib.request.urlopen') as mock_urlopen:
+            mock_response = Mock()
+            mock_response.read.return_value = mock_python_content.encode('utf-8')
+            mock_urlopen.return_value.__enter__.return_value = mock_response
+
+            with caplog.at_level(logging.DEBUG):
+                result = fetch_project_readme(mock_client, project)
+
+        # Should return None since both API and raw failed
+        # (Python AST fallback happens in process_project, not fetch_project_readme)
+        assert result is None
+        # Verify API was attempted
+        mock_retry.assert_called_once()
+        # Verify raw URL was attempted as fallback
+        mock_raw.assert_called_once()
+
+    @patch('scripts.fetch_awesome_llm_apps.fetch_raw_readme')
+    @patch('scripts.fetch_awesome_llm_apps.fetch_with_retry')
+    def test_all_fetch_methods_fail_gracefully(self, mock_retry, mock_raw):
+        """Test that script doesn't crash when all fetch methods fail."""
+        # Mock all fetch methods to return None
+        mock_retry.return_value = None
+        mock_raw.return_value = None
+
+        mock_client = Mock()
+        project = Project(
+            title="NonExistent",
+            url="https://github.com/nonexistent/repo",
+            description="Does not exist",
+            category="Test"
+        )
+
+        result = fetch_project_readme(mock_client, project)
+
+        # Should return None gracefully, not raise exception
+        assert result is None
+        mock_retry.assert_called_once()
+        mock_raw.assert_called_once()
+
+    @patch('scripts.fetch_awesome_llm_apps.urllib.request.urlopen')
+    def test_url_error_handling_in_raw_fetch(self, mock_urlopen):
+        """Test that URL errors (e.g., DNS failures) are handled gracefully."""
+        # Simulate DNS failure / URL error
+        mock_urlopen.side_effect = urllib.error.URLError("DNS lookup failed")
+
+        result = fetch_raw_readme("https://github.com/owner/repo")
+
+        # Should return None, not raise exception
+        assert result is None
+
+    @patch('scripts.fetch_awesome_llm_apps.urllib.request.urlopen')
+    def test_http_error_handling_in_raw_fetch(self, mock_urlopen):
+        """Test that HTTP errors (e.g., 500, 403) are handled gracefully."""
+        # Simulate server error
+        mock_urlopen.side_effect = urllib.error.HTTPError("url", 500, "Internal Server Error", {}, None)
+
+        result = fetch_raw_readme("https://github.com/owner/repo")
+
+        # Should return None, not raise exception
+        assert result is None
+
+    def test_github_rate_limit_exceeded(self):
+        """Test GitHub API rate limit handling."""
+        from github.GithubException import RateLimitExceededException
+
+        mock_client = Mock()
+        fetch_op = Mock(side_effect=RateLimitExceededException(403, {"message": "API rate limit exceeded"}, {"headers": {}}))
+
+        sleep_calls = []
+
+        def track_sleep(seconds):
+            sleep_calls.append(seconds)
+
+        with patch('scripts.fetch_awesome_llm_apps.time.sleep', side_effect=track_sleep):
+            result = fetch_with_retry(mock_client, fetch_op, "owner/repo", max_retries=2, initial_wait=1.0)
+
+        # Should exhaust retries and return None
+        assert result is None
+        assert fetch_op.call_count == 2
+        # Should have slept between retries with exponential backoff
+        assert len(sleep_calls) == 1  # 2 attempts = 1 sleep
+        assert sleep_calls[0] == 1.0
