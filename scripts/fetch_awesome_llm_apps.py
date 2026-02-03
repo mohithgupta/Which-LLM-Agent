@@ -607,6 +607,64 @@ def extract_python_metadata(file_path: str) -> Optional[Dict[str, Any]]:
         return None
 
 
+def create_output_structure(output_dir: str, categories: Dict[str, List[Project]]) -> None:
+    """
+    Create output directory structure mirroring the category hierarchy.
+
+    This function creates a base output directory and subdirectories for each
+    category found in the README. The directory structure mirrors the category
+    hierarchy from the source README, enabling organized output of project data.
+
+    Args:
+        output_dir: Path to the base output directory
+        categories: Dictionary mapping category names to lists of Project objects
+
+    Raises:
+        OSError: If directory creation fails due to permission or filesystem errors
+
+    Example:
+        >>> categories = {"AI Tools": [project1, project2], "Chatbots": [project3]}
+        >>> create_output_structure("output", categories)
+        # Creates: output/, output/AI Tools/, output/Chatbots/
+    """
+    logger = logging.getLogger(__name__)
+    logger.info(f"Creating output directory structure: {output_dir}")
+
+    output_path = Path(output_dir)
+
+    try:
+        # Create base output directory if it doesn't exist
+        if not output_path.exists():
+            output_path.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Created base output directory: {output_path}")
+        else:
+            logger.debug(f"Base output directory already exists: {output_path}")
+
+        # Create subdirectories for each category
+        category_dirs_created = 0
+        for category_name in categories.keys():
+            # Sanitize category name for use as directory name
+            # Replace special characters that aren't safe in file paths
+            safe_category_name = category_name.replace('/', '-').replace('\\', '-')
+            category_path = output_path / safe_category_name
+
+            if not category_path.exists():
+                category_path.mkdir(parents=True, exist_ok=True)
+                logger.debug(f"Created category directory: {category_path}")
+                category_dirs_created += 1
+            else:
+                logger.debug(f"Category directory already exists: {category_path}")
+
+        logger.info(
+            f"Output structure complete: {len(categories)} categories, "
+            f"{category_dirs_created} new directories created"
+        )
+
+    except OSError as e:
+        logger.error(f"Failed to create output directory structure: {e}")
+        raise
+
+
 def main() -> int:
     """
     Main entry point for the script.
@@ -629,8 +687,18 @@ def main() -> int:
     logger.debug(f"GitHub token provided: {bool(args.github_token)}")
 
     try:
-        # TODO: Implement main fetching logic in subsequent subtasks
-        logger.info("Script structure initialized successfully")
+        # For now, create a simple category structure for testing
+        # In subsequent subtasks, this will be replaced by actual README parsing
+        test_categories = {
+            "AI Tools": [],
+            "Chatbots": [],
+            "Data Analysis": []
+        }
+
+        # Create output directory structure
+        create_output_structure(args.output_dir, test_categories)
+
+        logger.info("Output directory structure created successfully")
         logger.info("Implementation will continue in subsequent subtasks")
 
         if args.dry_run:
