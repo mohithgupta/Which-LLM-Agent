@@ -14,9 +14,28 @@ Output is structured data suitable for MkDocs documentation generation.
 import argparse
 import logging
 import os
+import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Dict, List, Optional
+
+
+@dataclass
+class Project:
+    """
+    Represents a single project entry from the awesome-llm-apps repository.
+
+    Attributes:
+        title: The project name/title
+        url: The GitHub repository URL
+        description: Optional project description
+        category: The category this project belongs to
+    """
+    title: str
+    url: str
+    description: Optional[str] = None
+    category: str = ""
 
 
 # Configure logging
@@ -103,6 +122,91 @@ Examples:
     )
 
     return parser.parse_args()
+
+
+def parse_main_readme(readme_path: str) -> Dict[str, List[Project]]:
+    """
+    Parse the main awesome-llm-apps README.md to extract projects grouped by category.
+
+    This function reads a markdown file and extracts project entries organized by
+    category headers. It expects the format:
+        ## Category Name
+        - [Project Title](URL) - Description
+
+    Args:
+        readme_path: Path to the README.md file to parse
+
+    Returns:
+        Dictionary mapping category names to lists of Project objects
+
+    Raises:
+        FileNotFoundError: If the readme_path does not exist
+        ValueError: If the README format is invalid
+    """
+    logger = logging.getLogger(__name__)
+    logger.info(f"Parsing main README: {readme_path}")
+
+    readme_file = Path(readme_path)
+    if not readme_file.exists():
+        logger.error(f"README file not found: {readme_path}")
+        raise FileNotFoundError(f"README file not found: {readme_path}")
+
+    try:
+        content = readme_file.read_text(encoding="utf-8")
+    except IOError as e:
+        logger.error(f"Failed to read README file: {e}")
+        raise
+
+    # Dictionary to store categories and their projects
+    categories: Dict[str, List[Project]] = {}
+    current_category = "Uncategorized"
+
+    # Regex patterns
+    category_pattern = re.compile(r"^##\s+(.+)$", re.MULTILINE)
+    project_pattern = re.compile(
+        r"-\s+\[([^\]]+)\]\(([^)]+)\)\s*(?:-\s*(.+))?$",
+        re.MULTILINE
+    )
+
+    # Split content into lines for processing
+    lines = content.split("\n")
+
+    for line in lines:
+        # Check if line is a category header
+        category_match = category_pattern.match(line.strip())
+        if category_match:
+            current_category = category_match.group(1).strip()
+            logger.debug(f"Found category: {current_category}")
+            if current_category not in categories:
+                categories[current_category] = []
+            continue
+
+        # Check if line is a project entry
+        project_match = project_pattern.match(line.strip())
+        if project_match:
+            title = project_match.group(1).strip()
+            url = project_match.group(2).strip()
+            description = project_match.group(3).strip() if project_match.group(3) else None
+
+            project = Project(
+                title=title,
+                url=url,
+                description=description,
+                category=current_category
+            )
+
+            categories.setdefault(current_category, []).append(project)
+            logger.debug(f"Added project '{title}' to category '{current_category}'")
+
+    # Summary statistics
+    total_projects = sum(len(projects) for projects in categories.values())
+    logger.info(f"Parsed {len(categories)} categories with {total_projects} total projects")
+
+    if total_projects == 0:
+        logger.warning("No projects found in README - check format")
+        raise ValueError("No valid project entries found in README")
+
+    return categories
 
 
 def main() -> int:
