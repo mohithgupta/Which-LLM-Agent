@@ -833,41 +833,46 @@ def fetch_project_readme(github_client: Github, project: Project) -> Optional[st
     logger = logging.getLogger(__name__)
     logger.debug(f"Fetching README for project: {project.title}")
 
-    # Extract owner/repo from URL
-    url_pattern = re.compile(r'github\.com[/:]?([^/]+)/([^/]+?)(?:\.git)?/?$')
-    match = url_pattern.search(project.url)
+    try:
+        # Extract owner/repo from URL
+        url_pattern = re.compile(r'github\.com[/:]?([^/]+)/([^/]+?)(?:\.git)?/?$')
+        match = url_pattern.search(project.url)
 
-    if not match:
-        logger.warning(f"Could not parse repository URL for {project.title}: {project.url}")
+        if not match:
+            logger.warning(f"Could not parse repository URL for {project.title}: {project.url}")
+            return None
+
+        owner, repo = match.groups()
+        repo_name = f"{owner}/{repo}"
+        logger.debug(f"Repository identifier: {repo_name}")
+
+        # Tier 2a: Try GitHub API first
+        logger.debug(f"Attempting Tier 2a: GitHub API fetch for {project.title}")
+        def fetch_via_api(repo_name: str) -> str:
+            repo_obj = github_client.get_repo(repo_name)
+            readme = repo_obj.get_readme()
+            return readme.decoded_content.decode('utf-8')
+
+        content = fetch_with_retry(github_client, fetch_via_api, repo_name)
+
+        if content:
+            logger.info(f"Tier 2a (GitHub API) succeeded for {project.title}")
+            return content
+
+        # Tier 2b: Fallback to raw.githubusercontent.com
+        logger.debug(f"Tier 2a failed, attempting Tier 2b: raw.githubusercontent.com for {project.title}")
+        content = fetch_raw_readme(project.url)
+
+        if content:
+            logger.info(f"Tier 2b (raw URL) succeeded for {project.title}")
+            return content
+
+        logger.warning(f"Tier 2 (both API and raw URL) failed for {project.title}")
         return None
 
-    owner, repo = match.groups()
-    repo_name = f"{owner}/{repo}"
-    logger.debug(f"Repository identifier: {repo_name}")
-
-    # Tier 2a: Try GitHub API first
-    logger.debug(f"Attempting Tier 2a: GitHub API fetch for {project.title}")
-    def fetch_via_api(repo_name: str) -> str:
-        repo_obj = github_client.get_repo(repo_name)
-        readme = repo_obj.get_readme()
-        return readme.decoded_content.decode('utf-8')
-
-    content = fetch_with_retry(github_client, fetch_via_api, repo_name)
-
-    if content:
-        logger.info(f"Tier 2a (GitHub API) succeeded for {project.title}")
-        return content
-
-    # Tier 2b: Fallback to raw.githubusercontent.com
-    logger.debug(f"Tier 2a failed, attempting Tier 2b: raw.githubusercontent.com for {project.title}")
-    content = fetch_raw_readme(project.url)
-
-    if content:
-        logger.info(f"Tier 2b (raw URL) succeeded for {project.title}")
-        return content
-
-    logger.warning(f"Tier 2 (both API and raw URL) failed for {project.title}")
-    return None
+    except Exception as e:
+        logger.error(f"Unexpected error fetching README for {project.title}: {e}")
+        return None
 
 
 def process_project(
@@ -894,150 +899,157 @@ def process_project(
         True if project was processed successfully, False if all tiers failed
     """
     logger = logging.getLogger(__name__)
-    logger.info(f"Processing project: {project.title} (category: {project.category})")
 
-    # Check cache first
-    readme_content = None
-    if readme_cache and project.url in readme_cache:
-        readme_content = readme_cache[project.url]
-        logger.debug(f"Using cached README for {project.title}")
+    try:
+        logger.info(f"Processing project: {project.title} (category: {project.category})")
 
-    # Tier 2: Fetch README if not cached
-    if not readme_content:
-        readme_content = fetch_project_readme(github_client, project)
+        # Check cache first
+        readme_content = None
+        if readme_cache and project.url in readme_cache:
+            readme_content = readme_cache[project.url]
+            logger.debug(f"Using cached README for {project.title}")
 
-        # Cache the result if we got content
-        if readme_content and readme_cache is not None:
-            readme_cache[project.url] = readme_content
+        # Tier 2: Fetch README if not cached
+        if not readme_content:
+            readme_content = fetch_project_readme(github_client, project)
 
-    # Determine final content and metadata
-    final_content = ""
-    final_metadata = {
-        'title': project.title,
-        'url': project.url,
-        'category': project.category
-    }
+            # Cache the result if we got content
+            if readme_content and readme_cache is not None:
+                readme_cache[project.url] = readme_content
 
-    if readme_content:
-        # Tier 2 succeeded: Use README content
-        logger.info(f"Tier 2 (README fetch) succeeded for {project.title}")
-        logger.debug(f"Using fetched README content for {project.title}")
-        final_content = readme_content
-        if project.description:
+        # Determine final content and metadata
+        final_content = ""
+        final_metadata = {
+            'title': project.title,
+            'url': project.url,
+            'category': project.category
+        }
+
+        if readme_content:
+            # Tier 2 succeeded: Use README content
+            logger.info(f"Tier 2 (README fetch) succeeded for {project.title}")
+            logger.debug(f"Using fetched README content for {project.title}")
+            final_content = readme_content
+            if project.description:
+                final_metadata['description'] = project.description
+
+        else:
+            # Tier 3: Fallback to Python AST metadata extraction
+            logger.info(f"Tier 2 failed for {project.title}, attempting Tier 3 (Python AST extraction)")
+
+            try:
+                # Try to infer Python file URL from project URL
+                # Common patterns: main.py, app.py, project_name.py
+                url_pattern = re.compile(r'github\.com[/:]?([^/]+)/([^/]+?)(?:\.git)?/?$')
+                match = url_pattern.search(project.url)
+
+                if match:
+                    owner, repo = match.groups()
+
+                    # List of common entry point files to try
+                    common_filenames = [
+                        f"{repo.lower()}.py",
+                        "main.py",
+                        "app.py",
+                        "run.py",
+                        "__init__.py"
+                    ]
+
+                    for filename in common_filenames:
+                        # Construct raw URL for Python file
+                        raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/main/{filename}"
+                        temp_file = None
+
+                        try:
+                            # Download Python file to temp location for parsing
+                            logger.debug(f"Trying to fetch Python file: {filename}")
+                            req = urllib.request.Request(
+                                raw_url,
+                                headers={'User-Agent': 'Mozilla/5.0'}
+                            )
+                            with urllib.request.urlopen(req, timeout=10) as response:
+                                python_code = response.read().decode('utf-8')
+
+                                # Create temporary file for AST parsing
+                                import tempfile
+                                with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+                                    f.write(python_code)
+                                    temp_file = f.name
+
+                                # Extract metadata using AST
+                                metadata = extract_python_metadata(temp_file)
+
+                                if metadata and metadata.get('description'):
+                                    logger.info(f"Tier 3 (Python AST) succeeded for {project.title}")
+                                    final_metadata['description'] = metadata['description']
+                                    final_metadata['python_metadata'] = metadata
+
+                                    # Build content from Python metadata
+                                    final_content = f"# {project.title}\n\n"
+                                    if metadata.get('description'):
+                                        final_content += f"{metadata['description']}\n\n"
+
+                                    if metadata.get('functions'):
+                                        final_content += "## Functions\n\n"
+                                        for func in metadata['functions'][:10]:  # Limit to first 10
+                                            final_content += f"- **{func['name']}**"
+                                            if func.get('docstring'):
+                                                final_content += f": {func['docstring'].split(chr(10))[0][:100]}"
+                                            final_content += "\n"
+
+                                    if metadata.get('classes'):
+                                        final_content += "\n## Classes\n\n"
+                                        for cls in metadata['classes'][:10]:  # Limit to first 10
+                                            final_content += f"- **{cls['name']}**"
+                                            if cls.get('docstring'):
+                                                final_content += f": {cls['docstring'].split(chr(10))[0][:100]}"
+                                            final_content += "\n"
+
+                                    break
+
+                        except urllib.error.HTTPError:
+                            logger.debug(f"Python file not found: {filename}")
+                            continue
+                        except urllib.error.URLError:
+                            logger.debug(f"Failed to fetch Python file: {filename}")
+                            continue
+                        except Exception as e:
+                            logger.debug(f"Error processing Python file {filename}: {e}")
+                            continue
+                        finally:
+                            # Clean up temp file
+                            if temp_file and Path(temp_file).exists():
+                                try:
+                                    Path(temp_file).unlink()
+                                except Exception:
+                                    pass
+
+            except Exception as e:
+                logger.warning(f"Tier 3 (Python AST extraction) failed for {project.title}: {e}")
+
+        # If we still have no content, use catalog metadata as final fallback
+        if not final_content:
+            logger.warning(f"All tiers failed for {project.title}, using catalog metadata only")
+            logger.info(f"Using catalog metadata (Tier 1) for {project.title}")
+            final_content = f"# {project.title}\n\n"
+            if project.description:
+                final_content += f"{project.description}\n\n"
+            final_content += f"**Repository:** {project.url}\n\n"
+            final_content += "---\n\n"
+            final_content += "*This project has no README available and Python metadata could not be extracted.*\n"
+
+        # Add description to metadata if available
+        if project.description and 'description' not in final_metadata:
             final_metadata['description'] = project.description
 
-    else:
-        # Tier 3: Fallback to Python AST metadata extraction
-        logger.info(f"Tier 2 failed for {project.title}, attempting Tier 3 (Python AST extraction)")
-
-        # Try to infer Python file URL from project URL
-        # Common patterns: main.py, app.py, project_name.py
-        url_pattern = re.compile(r'github\.com[/:]?([^/]+)/([^/]+?)(?:\.git)?/?$')
-        match = url_pattern.search(project.url)
-
-        if match:
-            owner, repo = match.groups()
-
-            # List of common entry point files to try
-            common_filenames = [
-                f"{repo.lower()}.py",
-                "main.py",
-                "app.py",
-                "run.py",
-                "__init__.py"
-            ]
-
-            for filename in common_filenames:
-                # Construct raw URL for Python file
-                raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/main/{filename}"
-                temp_file = None
-
-                try:
-                    # Download Python file to temp location for parsing
-                    logger.debug(f"Trying to fetch Python file: {filename}")
-                    req = urllib.request.Request(
-                        raw_url,
-                        headers={'User-Agent': 'Mozilla/5.0'}
-                    )
-                    with urllib.request.urlopen(req, timeout=10) as response:
-                        python_code = response.read().decode('utf-8')
-
-                        # Create temporary file for AST parsing
-                        import tempfile
-                        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
-                            f.write(python_code)
-                            temp_file = f.name
-
-                        # Extract metadata using AST
-                        metadata = extract_python_metadata(temp_file)
-
-                        if metadata and metadata.get('description'):
-                            logger.info(f"Tier 3 (Python AST) succeeded for {project.title}")
-                            final_metadata['description'] = metadata['description']
-                            final_metadata['python_metadata'] = metadata
-
-                            # Build content from Python metadata
-                            final_content = f"# {project.title}\n\n"
-                            if metadata.get('description'):
-                                final_content += f"{metadata['description']}\n\n"
-
-                            if metadata.get('functions'):
-                                final_content += "## Functions\n\n"
-                                for func in metadata['functions'][:10]:  # Limit to first 10
-                                    final_content += f"- **{func['name']}**"
-                                    if func.get('docstring'):
-                                        final_content += f": {func['docstring'].split(chr(10))[0][:100]}"
-                                    final_content += "\n"
-
-                            if metadata.get('classes'):
-                                final_content += "\n## Classes\n\n"
-                                for cls in metadata['classes'][:10]:  # Limit to first 10
-                                    final_content += f"- **{cls['name']}**"
-                                    if cls.get('docstring'):
-                                        final_content += f": {cls['docstring'].split(chr(10))[0][:100]}"
-                                    final_content += "\n"
-
-                            break
-
-                except urllib.error.HTTPError:
-                    logger.debug(f"Python file not found: {filename}")
-                    continue
-                except urllib.error.URLError:
-                    logger.debug(f"Failed to fetch Python file: {filename}")
-                    continue
-                except Exception as e:
-                    logger.debug(f"Error processing Python file {filename}: {e}")
-                    continue
-                finally:
-                    # Clean up temp file
-                    if temp_file and Path(temp_file).exists():
-                        try:
-                            Path(temp_file).unlink()
-                        except Exception:
-                            pass
-
-    # If we still have no content, use catalog metadata as final fallback
-    if not final_content:
-        logger.warning(f"All tiers failed for {project.title}, using catalog metadata only")
-        logger.info(f"Using catalog metadata (Tier 1) for {project.title}")
-        final_content = f"# {project.title}\n\n"
-        if project.description:
-            final_content += f"{project.description}\n\n"
-        final_content += f"**Repository:** {project.url}\n\n"
-        final_content += "---\n\n"
-        final_content += "*This project has no README available and Python metadata could not be extracted.*\n"
-
-    # Add description to metadata if available
-    if project.description and 'description' not in final_metadata:
-        final_metadata['description'] = project.description
-
-    # Generate output file
-    try:
+        # Generate output file
         generate_project_output(project, output_dir, final_content)
         logger.info(f"Successfully processed {project.title}")
         return True
+
     except Exception as e:
-        logger.error(f"Failed to generate output for {project.title}: {e}")
+        logger.error(f"Failed to process project {project.title}: {e}", exc_info=True)
+        # Return False to indicate failure but allow processing to continue
         return False
 
 
