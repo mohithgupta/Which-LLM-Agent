@@ -19,6 +19,7 @@ import sys
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Dict, List, Optional, Any
+from urllib.parse import quote
 
 
 def parse_simple_yaml_frontmatter(yaml_text: str) -> Dict[str, Any]:
@@ -296,9 +297,11 @@ def generate_agent_card(agent: AgentMetadata, category: str) -> str:
     """
     # Create relative link from docs/index.md to agent page
     # Agent files are in output/<category>/<agent>.md
-    # We need to link to ../output/<category>/<agent>.md or just output/<category>/<agent>
+    # We need to link to ../output/<category>/<agent>.md from docs/index.md
     # Normalize path separators to forward slashes for web URLs
-    relative_link = agent.file_path.replace('\\', '/').replace('.md', '')
+    # URL-encode spaces and special characters
+    relative_link = '../output/' + agent.file_path.replace('\\', '/').replace('.md', '')
+    relative_link = quote(relative_link, safe='/:')
 
     # Use description or a fallback
     description = agent.description if agent.description else "No description available"
