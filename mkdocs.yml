@@ -55,6 +55,15 @@ plugins:
 # Navigation structure
 nav:
   - Home: index.md
+  - Starter AI Agents: starter_ai_agents/index.md
+  - Advanced AI Agents: advanced_ai_agents/index.md
+  - Multi-Agent Teams: multi_agent_teams/index.md
+  - Voice AI Agents: voice_ai_agents/index.md
+  - MCP AI Agents: mcp_ai_agents/index.md
+  - RAG Agents: rag_agents/index.md
+  - Memory Tutorials: memory_tutorials/index.md
+  - Chat With X: chat_with_x/index.md
+  - Naming Conventions: NAMING_CONVENTIONS.md
 
 # Markdown extensions
 markdown_extensions:
