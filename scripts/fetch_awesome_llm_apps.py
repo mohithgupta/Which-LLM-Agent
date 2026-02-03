@@ -805,9 +805,236 @@ def generate_project_output(
     logger.info(f"Created output file: {output_path}")
 
 
+def fetch_project_readme(github_client: Github, project: Project) -> Optional[str]:
+    """
+    Fetch a project's README using GitHub API with fallback to raw URLs.
+
+    This is the primary tier-2 function that attempts to fetch a project's
+    README content using the GitHub API. If the API fails (e.g., due to rate
+    limits), it falls back to fetching via raw.githubusercontent.com URLs.
+
+    Args:
+        github_client: Authenticated GitHub API client
+        project: Project object containing the repository URL
+
+    Returns:
+        README content as string if successful, None if all fetch attempts fail
+    """
+    logger = logging.getLogger(__name__)
+    logger.debug(f"Fetching README for project: {project.title}")
+
+    # Extract owner/repo from URL
+    url_pattern = re.compile(r'github\.com[/:]?([^/]+)/([^/]+?)(?:\.git)?/?$')
+    match = url_pattern.search(project.url)
+
+    if not match:
+        logger.warning(f"Could not parse repository URL for {project.title}: {project.url}")
+        return None
+
+    owner, repo = match.groups()
+    repo_name = f"{owner}/{repo}"
+
+    # Tier 2a: Try GitHub API first
+    def fetch_via_api(repo_name: str) -> str:
+        repo_obj = github_client.get_repo(repo_name)
+        readme = repo_obj.get_readme()
+        return readme.decoded_content.decode('utf-8')
+
+    content = fetch_with_retry(github_client, fetch_via_api, repo_name)
+
+    if content:
+        logger.info(f"Successfully fetched README via API for {project.title}")
+        return content
+
+    # Tier 2b: Fallback to raw.githubusercontent.com
+    logger.info(f"API fetch failed for {project.title}, trying raw.githubusercontent.com")
+    content = fetch_raw_readme(project.url)
+
+    if content:
+        logger.info(f"Successfully fetched README via raw URL for {project.title}")
+        return content
+
+    logger.warning(f"Failed to fetch README for {project.title} using all methods")
+    return None
+
+
+def process_project(
+    project: Project,
+    github_client: Github,
+    output_dir: str,
+    readme_cache: Optional[Dict[str, str]] = None
+) -> bool:
+    """
+    Process a single project through the three-tier data fetching strategy.
+
+    This function implements the complete three-tier approach:
+    1. Tier 1: Use catalog metadata from main README (already in project object)
+    2. Tier 2: Fetch full README from GitHub API or raw URL
+    3. Tier 3: Fall back to Python AST metadata extraction if README unavailable
+
+    Args:
+        project: Project object with title, URL, description, and category
+        github_client: Authenticated GitHub API client
+        output_dir: Base output directory for generated files
+        readme_cache: Optional cache mapping URLs to README content to avoid refetching
+
+    Returns:
+        True if project was processed successfully, False if all tiers failed
+    """
+    logger = logging.getLogger(__name__)
+    logger.info(f"Processing project: {project.title}")
+
+    # Check cache first
+    readme_content = None
+    if readme_cache and project.url in readme_cache:
+        readme_content = readme_cache[project.url]
+        logger.debug(f"Using cached README for {project.title}")
+
+    # Tier 2: Fetch README if not cached
+    if not readme_content:
+        readme_content = fetch_project_readme(github_client, project)
+
+        # Cache the result if we got content
+        if readme_content and readme_cache is not None:
+            readme_cache[project.url] = readme_content
+
+    # Determine final content and metadata
+    final_content = ""
+    final_metadata = {
+        'title': project.title,
+        'url': project.url,
+        'category': project.category
+    }
+
+    if readme_content:
+        # Tier 2 succeeded: Use README content
+        logger.debug(f"Using fetched README content for {project.title}")
+        final_content = readme_content
+        if project.description:
+            final_metadata['description'] = project.description
+
+    else:
+        # Tier 3: Fallback to Python AST metadata extraction
+        logger.info(f"README unavailable for {project.title}, attempting Python AST extraction")
+
+        # Try to infer Python file URL from project URL
+        # Common patterns: main.py, app.py, project_name.py
+        url_pattern = re.compile(r'github\.com[/:]?([^/]+)/([^/]+?)(?:\.git)?/?$')
+        match = url_pattern.search(project.url)
+
+        if match:
+            owner, repo = match.groups()
+
+            # List of common entry point files to try
+            common_filenames = [
+                f"{repo.lower()}.py",
+                "main.py",
+                "app.py",
+                "run.py",
+                "__init__.py"
+            ]
+
+            for filename in common_filenames:
+                # Construct raw URL for Python file
+                raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/main/{filename}"
+                temp_file = None
+
+                try:
+                    # Download Python file to temp location for parsing
+                    logger.debug(f"Trying to fetch Python file: {filename}")
+                    req = urllib.request.Request(
+                        raw_url,
+                        headers={'User-Agent': 'Mozilla/5.0'}
+                    )
+                    with urllib.request.urlopen(req, timeout=10) as response:
+                        python_code = response.read().decode('utf-8')
+
+                        # Create temporary file for AST parsing
+                        import tempfile
+                        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+                            f.write(python_code)
+                            temp_file = f.name
+
+                        # Extract metadata using AST
+                        metadata = extract_python_metadata(temp_file)
+
+                        if metadata and metadata.get('description'):
+                            logger.info(f"Successfully extracted Python metadata for {project.title}")
+                            final_metadata['description'] = metadata['description']
+                            final_metadata['python_metadata'] = metadata
+
+                            # Build content from Python metadata
+                            final_content = f"# {project.title}\n\n"
+                            if metadata.get('description'):
+                                final_content += f"{metadata['description']}\n\n"
+
+                            if metadata.get('functions'):
+                                final_content += "## Functions\n\n"
+                                for func in metadata['functions'][:10]:  # Limit to first 10
+                                    final_content += f"- **{func['name']}**"
+                                    if func.get('docstring'):
+                                        final_content += f": {func['docstring'].split(chr(10))[0][:100]}"
+                                    final_content += "\n"
+
+                            if metadata.get('classes'):
+                                final_content += "\n## Classes\n\n"
+                                for cls in metadata['classes'][:10]:  # Limit to first 10
+                                    final_content += f"- **{cls['name']}**"
+                                    if cls.get('docstring'):
+                                        final_content += f": {cls['docstring'].split(chr(10))[0][:100]}"
+                                    final_content += "\n"
+
+                            break
+
+                except urllib.error.HTTPError:
+                    logger.debug(f"Python file not found: {filename}")
+                    continue
+                except urllib.error.URLError:
+                    logger.debug(f"Failed to fetch Python file: {filename}")
+                    continue
+                except Exception as e:
+                    logger.debug(f"Error processing Python file {filename}: {e}")
+                    continue
+                finally:
+                    # Clean up temp file
+                    if temp_file and Path(temp_file).exists():
+                        try:
+                            Path(temp_file).unlink()
+                        except Exception:
+                            pass
+
+    # If we still have no content, use catalog metadata as final fallback
+    if not final_content:
+        logger.warning(f"All tiers failed for {project.title}, using catalog metadata only")
+        final_content = f"# {project.title}\n\n"
+        if project.description:
+            final_content += f"{project.description}\n\n"
+        final_content += f"**Repository:** {project.url}\n\n"
+        final_content += "---\n\n"
+        final_content += "*This project has no README available and Python metadata could not be extracted.*\n"
+
+    # Add description to metadata if available
+    if project.description and 'description' not in final_metadata:
+        final_metadata['description'] = project.description
+
+    # Generate output file
+    try:
+        generate_project_output(project, output_dir, final_content)
+        logger.info(f"Successfully processed {project.title}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to generate output for {project.title}: {e}")
+        return False
+
+
 def main() -> int:
     """
     Main entry point for the script.
+
+    Orchestrates the three-tier data fetching pipeline:
+    1. Parse main README to extract project catalog (Tier 1)
+    2. Fetch individual project READMEs via GitHub API (Tier 2)
+    3. Fall back to Python AST parsing for projects without READMEs (Tier 3)
 
     Returns:
         Exit code (0 for success, non-zero for failure)
@@ -827,59 +1054,74 @@ def main() -> int:
     logger.debug(f"GitHub token provided: {bool(args.github_token)}")
 
     try:
-        # For now, create test projects with metadata
-        # In subsequent subtasks, this will be replaced by actual README parsing
-        test_projects = {
-            "AI Tools": [
-                Project(
-                    title="LangChain",
-                    url="https://github.com/langchain-ai/langchain",
-                    description="Building applications with LLMs through composability",
-                    category="AI Tools"
-                ),
-                Project(
-                    title="AutoGPT",
-                    url="https://github.com/Significant-Gravitas/AutoGPT",
-                    description="An experimental open-source attempt to make GPT-4 fully autonomous",
-                    category="AI Tools"
-                )
-            ],
-            "Chatbots": [
-                Project(
-                    title="ChatGPT-Clone",
-                    url="https://github.com/openai/chatgpt",
-                    description="A conversational AI system",
-                    category="Chatbots"
-                )
-            ],
-            "Data Analysis": [
-                Project(
-                    title="Pandas-AI",
-                    url="https://github.com/gventuri/pandas-ai",
-                    description="Pandas AI is a Python library that integrates LLMs into pandas",
-                    category="Data Analysis"
-                )
-            ]
-        }
+        # Initialize GitHub client
+        github_client = get_github_client(args.github_token)
+
+        # Tier 1: Parse main README to extract project catalog
+        logger.info("Tier 1: Parsing main README to extract project catalog")
+        awesome_readme_path = "docs/awesome-llm-apps/README.md"
+
+        if not Path(awesome_readme_path).exists():
+            logger.error(f"Main README not found at: {awesome_readme_path}")
+            logger.error("Please ensure the awesome-llm-apps README is available")
+            return 1
+
+        categories = parse_main_readme(awesome_readme_path)
+        total_projects = sum(len(projects) for projects in categories.values())
+        logger.info(f"Found {len(categories)} categories with {total_projects} total projects")
 
         # Create output directory structure
-        create_output_structure(args.output_dir, test_projects)
+        create_output_structure(args.output_dir, categories)
 
-        # Generate markdown files for each project with metadata
-        total_projects = 0
-        for category, projects in test_projects.items():
-            logger.info(f"Processing {len(projects)} projects in category: {category}")
+        # Initialize cache for README content
+        readme_cache = {} if not args.skip_cache else None
+
+        # Process each project through the three-tier strategy
+        logger.info("Tier 2 & 3: Fetching project READMEs with fallback to Python AST")
+        successful_count = 0
+        failed_count = 0
+
+        for category_name, projects in categories.items():
+            logger.info(f"Processing category: {category_name} ({len(projects)} projects)")
+
             for project in projects:
-                generate_project_output(project, args.output_dir)
-                total_projects += 1
+                try:
+                    success = process_project(
+                        project,
+                        github_client,
+                        args.output_dir,
+                        readme_cache
+                    )
 
-        logger.info(f"Successfully generated {total_projects} project files with metadata")
+                    if success:
+                        successful_count += 1
+                    else:
+                        failed_count += 1
+
+                except Exception as e:
+                    logger.error(f"Error processing project {project.title}: {e}", exc_info=True)
+                    failed_count += 1
+
+        # Log summary
+        logger.info("=" * 60)
+        logger.info("Processing complete")
+        logger.info(f"Total projects: {total_projects}")
+        logger.info(f"Successfully processed: {successful_count}")
+        logger.info(f"Failed: {failed_count}")
+        logger.info(f"Success rate: {100 * successful_count / total_projects:.1f}%")
+        logger.info("=" * 60)
 
         if args.dry_run:
             logger.info("Dry run mode - no files were written")
 
-        return 0
+        return 0 if failed_count == 0 else 1
 
+    except FileNotFoundError as e:
+        logger.error(f"Required file not found: {e}")
+        return 1
+    except ValueError as e:
+        logger.error(f"Invalid data format: {e}")
+        return 1
     except Exception as e:
         logger.error(f"Script failed with error: {e}", exc_info=True)
         return 1
