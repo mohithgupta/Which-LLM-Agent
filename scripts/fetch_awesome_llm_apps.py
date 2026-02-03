@@ -739,6 +739,72 @@ def write_markdown_with_frontmatter(
         raise
 
 
+def generate_project_output(
+    project: Project,
+    output_dir: str,
+    content: str = ""
+) -> None:
+    """
+    Generate markdown output file for a project with frontmatter metadata.
+
+    This function creates a markdown file for a project, preserving all metadata
+    in YAML frontmatter format compatible with MkDocs. The metadata includes
+    title, description, category, and URL.
+
+    Args:
+        project: Project object containing title, URL, description, and category
+        output_dir: Base output directory path
+        content: Optional markdown content body (defaults to placeholder text)
+
+    Raises:
+        OSError: If file writing fails
+    """
+    logger = logging.getLogger(__name__)
+    logger.debug(f"Generating output for project: {project.title}")
+
+    # Sanitize category name for filesystem
+    safe_category_name = project.category.replace('/', '-').replace('\\', '-')
+    category_dir = Path(output_dir) / safe_category_name
+
+    # Sanitize project title for filename
+    safe_title = project.title.replace('/', '-').replace('\\', '-').replace(' ', '_')
+    output_filename = f"{safe_title}.md"
+    output_path = category_dir / output_filename
+
+    # Build metadata dictionary
+    metadata = {
+        'title': project.title,
+        'url': project.url,
+        'category': project.category
+    }
+
+    # Add description if available
+    if project.description:
+        metadata['description'] = project.description
+
+    # Use placeholder content if none provided
+    if not content:
+        content = f"# {project.title}\n\n"
+        if project.description:
+            content += f"{project.description}\n\n"
+        content += f"**Repository:** {project.url}\n\n"
+        content += "---\n\n"
+        content += "*This content was automatically generated. The full README will be added in a later implementation phase.*\n"
+
+    # Skip writing in dry-run mode
+    logger = logging.getLogger(__name__)
+    if logger.isEnabledFor(logging.INFO):
+        import sys
+        if '--dry-run' in sys.argv:
+            logger.info(f"[DRY-RUN] Would create: {output_path}")
+            logger.debug(f"  Metadata: title={project.title}, category={project.category}")
+            return
+
+    # Write the markdown file with frontmatter
+    write_markdown_with_frontmatter(str(output_path), metadata, content)
+    logger.info(f"Created output file: {output_path}")
+
+
 def main() -> int:
     """
     Main entry point for the script.
@@ -761,22 +827,56 @@ def main() -> int:
     logger.debug(f"GitHub token provided: {bool(args.github_token)}")
 
     try:
-        # For now, create a simple category structure for testing
+        # For now, create test projects with metadata
         # In subsequent subtasks, this will be replaced by actual README parsing
-        test_categories = {
-            "AI Tools": [],
-            "Chatbots": [],
-            "Data Analysis": []
+        test_projects = {
+            "AI Tools": [
+                Project(
+                    title="LangChain",
+                    url="https://github.com/langchain-ai/langchain",
+                    description="Building applications with LLMs through composability",
+                    category="AI Tools"
+                ),
+                Project(
+                    title="AutoGPT",
+                    url="https://github.com/Significant-Gravitas/AutoGPT",
+                    description="An experimental open-source attempt to make GPT-4 fully autonomous",
+                    category="AI Tools"
+                )
+            ],
+            "Chatbots": [
+                Project(
+                    title="ChatGPT-Clone",
+                    url="https://github.com/openai/chatgpt",
+                    description="A conversational AI system",
+                    category="Chatbots"
+                )
+            ],
+            "Data Analysis": [
+                Project(
+                    title="Pandas-AI",
+                    url="https://github.com/gventuri/pandas-ai",
+                    description="Pandas AI is a Python library that integrates LLMs into pandas",
+                    category="Data Analysis"
+                )
+            ]
         }
 
         # Create output directory structure
-        create_output_structure(args.output_dir, test_categories)
+        create_output_structure(args.output_dir, test_projects)
 
-        logger.info("Output directory structure created successfully")
-        logger.info("Implementation will continue in subsequent subtasks")
+        # Generate markdown files for each project with metadata
+        total_projects = 0
+        for category, projects in test_projects.items():
+            logger.info(f"Processing {len(projects)} projects in category: {category}")
+            for project in projects:
+                generate_project_output(project, args.output_dir)
+                total_projects += 1
+
+        logger.info(f"Successfully generated {total_projects} project files with metadata")
 
         if args.dry_run:
-            logger.info("Dry run mode - no files will be written")
+            logger.info("Dry run mode - no files were written")
 
         return 0
 
