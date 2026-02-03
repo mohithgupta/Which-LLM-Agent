@@ -4,3 +4,4 @@ PyGithub>=1.59.0
 markdown2>=2.4.0
 python-frontmatter>=1.0.0
 PyYAML>=6.0.0
+pytest>=7.0.0
