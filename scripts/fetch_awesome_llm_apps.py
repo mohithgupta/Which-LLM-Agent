@@ -16,12 +16,14 @@ import logging
 import os
 import re
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import markdown2
 from github import Github
+from github.GithubException import RateLimitExceededException
 
 
 @dataclass
@@ -177,6 +179,71 @@ def get_github_client(token: str) -> Github:
         )
         client = Github()
         return client
+
+
+def fetch_with_retry(
+    github_client: Github,
+    fetch_operation: Callable,
+    repo_name: str,
+    max_retries: int = 3,
+    initial_wait: float = 1.0
+) -> Optional[Any]:
+    """
+    Execute a GitHub API operation with exponential backoff retry logic.
+
+    This function wraps GitHub API calls with retry logic that handles rate limits
+    gracefully. When a rate limit is hit, it waits exponentially longer between
+    retries (1s, 2s, 4s, etc.) to allow the rate limit to reset.
+
+    Args:
+        github_client: Authenticated Github client instance
+        fetch_operation: Callable that performs the GitHub API operation.
+                         Should accept repo_name as argument and return the result.
+        repo_name: Repository name in format 'owner/repo'
+        max_retries: Maximum number of retry attempts (default: 3)
+        initial_wait: Initial wait time in seconds before first retry (default: 1.0)
+
+    Returns:
+        Result of the fetch_operation if successful, None if all retries exhausted
+
+    Example:
+        >>> client = get_github_client(token)
+        >>> def get_readme(repo):
+        ...     repo_obj = client.get_repo(repo)
+        ...     return repo_obj.get_readme().decoded_content.decode('utf-8')
+        >>> content = fetch_with_retry(client, get_readme, 'owner/repo')
+    """
+    logger = logging.getLogger(__name__)
+
+    for attempt in range(max_retries):
+        try:
+            logger.debug(f"Fetching {repo_name} (attempt {attempt + 1}/{max_retries})")
+            result = fetch_operation(repo_name)
+            logger.debug(f"Successfully fetched {repo_name}")
+            return result
+
+        except RateLimitExceededException as e:
+            wait_time = initial_wait * (2 ** attempt)
+
+            if attempt < max_retries - 1:
+                logger.warning(
+                    f"Rate limit exceeded for {repo_name}. "
+                    f"Waiting {wait_time:.1f}s before retry {attempt + 1}/{max_retries}"
+                )
+                time.sleep(wait_time)
+            else:
+                logger.error(
+                    f"Rate limit exceeded for {repo_name} after {max_retries} attempts. "
+                    "Giving up."
+                )
+                return None
+
+        except Exception as e:
+            logger.error(f"Error fetching {repo_name}: {e}")
+            return None
+
+    logger.warning(f"Failed to fetch {repo_name} after {max_retries} attempts")
+    return None
 
 
 def parse_main_readme(readme_path: str) -> Dict[str, List[Project]]:
