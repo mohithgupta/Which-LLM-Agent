@@ -17,6 +17,8 @@ import os
 import re
 import sys
 import time
+import urllib.request
+import urllib.error
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
@@ -243,6 +245,85 @@ def fetch_with_retry(
             return None
 
     logger.warning(f"Failed to fetch {repo_name} after {max_retries} attempts")
+    return None
+
+
+def fetch_raw_readme(repo_url: str, branch: str = "main", timeout: int = 10) -> Optional[str]:
+    """
+    Fetch README content directly from raw.githubusercontent.com as a fallback.
+
+    This function constructs a raw.githubusercontent.com URL and fetches the README
+    content using standard HTTP requests. This is useful as a fallback when the
+    GitHub API rate limit has been exceeded.
+
+    Args:
+        repo_url: GitHub repository URL (e.g., 'https://github.com/owner/repo')
+        branch: Branch name to fetch README from (default: 'main')
+        timeout: Request timeout in seconds (default: 10)
+
+    Returns:
+        README content as string if successful, None if failed
+
+    Example:
+        >>> content = fetch_raw_readme('https://github.com/owner/repo')
+        >>> if content:
+        ...     print("README fetched successfully via raw URL")
+    """
+    logger = logging.getLogger(__name__)
+
+    # Extract owner and repo from URL
+    # Handle both github.com and github.com/ formats
+    url_pattern = re.compile(r'github\.com[/:]?([^/]+)/([^/]+?)(?:\.git)?/?$')
+    match = url_pattern.search(repo_url)
+
+    if not match:
+        logger.error(f"Could not parse repository URL: {repo_url}")
+        return None
+
+    owner, repo = match.groups()
+    logger.debug(f"Parsed owner={owner}, repo={repo} from URL")
+
+    # Construct raw.githubusercontent.com URL
+    # Try common README filenames
+    readme_filenames = ['README.md', 'README.markdown', 'README.rst', 'README']
+
+    for readme_name in readme_filenames:
+        raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{readme_name}"
+        logger.debug(f"Attempting to fetch from: {raw_url}")
+
+        try:
+            logger.debug(f"Fetching README from raw.githubusercontent.com for {owner}/{repo}")
+            req = urllib.request.Request(
+                raw_url,
+                headers={'User-Agent': 'Mozilla/5.0'}
+            )
+            with urllib.request.urlopen(req, timeout=timeout) as response:
+                content = response.read().decode('utf-8')
+                logger.info(f"Successfully fetched {readme_name} from raw.githubusercontent.com")
+                return content
+
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                logger.debug(f"{readme_name} not found on {branch} branch")
+                continue
+            else:
+                logger.warning(f"HTTP error {e.code} fetching {raw_url}: {e}")
+                continue
+
+        except urllib.error.URLError as e:
+            logger.warning(f"URL error fetching {raw_url}: {e}")
+            continue
+
+        except Exception as e:
+            logger.error(f"Unexpected error fetching {raw_url}: {e}")
+            continue
+
+    # If main branch failed, try master branch
+    if branch == "main":
+        logger.debug("README not found on main branch, trying master branch")
+        return fetch_raw_readme(repo_url, branch="master", timeout=timeout)
+
+    logger.warning(f"Could not fetch README from raw.githubusercontent.com for {repo_url}")
     return None
 
 
