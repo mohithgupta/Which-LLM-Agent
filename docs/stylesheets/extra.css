@@ -17,15 +17,22 @@
   border: 1px solid var(--md-default-fg-color--lightest);
   border-radius: 0.5rem;
   background-color: var(--md-default-bg-color);
-  transition: all 0.2s ease-in-out;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   height: 100%;
 }
 
 /* Card Hover Effect */
 .agent-card:hover {
   border-color: var(--md-primary-fg-color);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  transform: translateY(-3px);
+}
+
+/* Card Focus Effect for Accessibility */
+.agent-card:focus-within {
+  outline: 2px solid var(--md-accent-fg-color);
+  outline-offset: 2px;
 }
 
 /* Card Title Link */
@@ -35,10 +42,17 @@
   font-weight: 600;
   text-decoration: none;
   transition: color 0.2s ease-in-out;
+  position: relative;
 }
 
 .agent-card strong a:hover {
   color: var(--md-primary-fg-color);
+}
+
+.agent-card strong a:focus {
+  outline: 2px solid var(--md-accent-fg-color);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 /* Category Badge */
@@ -117,10 +131,11 @@
 [data-md-color-scheme="slate"] .agent-card {
   border-color: var(--md-default-fg-color--lightest);
   background-color: var(--md-default-bg-color);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 [data-md-color-scheme="slate"] .agent-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
 }
 
 /* Print Styles */
