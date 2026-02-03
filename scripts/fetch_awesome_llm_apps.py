@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import markdown2
+from github import Github
 
 
 @dataclass
@@ -124,6 +125,58 @@ Examples:
     )
 
     return parser.parse_args()
+
+
+def get_github_client(token: str) -> Github:
+    """
+    Create and configure a GitHub API client with authentication.
+
+    This function initializes a PyGithub client with the provided token.
+    While authentication is optional for public repositories, using a token
+    significantly increases the rate limit from 60 to 5000 requests per hour.
+
+    Args:
+        token: GitHub Personal Access Token for authentication. If empty,
+               the client will work without authentication but with lower
+               rate limits.
+
+    Returns:
+        Initialized Github client instance
+
+    Note:
+        If the provided token is invalid, the function will fall back to
+        unauthenticated access with a warning message.
+    """
+    logger = logging.getLogger(__name__)
+
+    if token:
+        logger.debug("Creating GitHub client with authentication")
+        try:
+            client = Github(token)
+            # Test the connection by checking rate limit
+            rate_limit = client.get_rate_limit()
+            logger.debug(
+                f"GitHub API rate limit: {rate_limit.core.remaining} "
+                f"of {rate_limit.core.limit} remaining"
+            )
+            logger.info("GitHub client authenticated successfully")
+            return client
+        except Exception as e:
+            logger.warning(
+                f"Failed to authenticate with provided token: {e}. "
+                "Falling back to unauthenticated access."
+            )
+            # Fall back to unauthenticated client
+            client = Github()
+            return client
+    else:
+        logger.warning(
+            "Creating GitHub client without authentication - "
+            "rate limited to 60 requests/hour. "
+            "Set GITHUB_TOKEN environment variable for increased limits."
+        )
+        client = Github()
+        return client
 
 
 def parse_main_readme(readme_path: str) -> Dict[str, List[Project]]:
