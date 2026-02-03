@@ -3,3 +3,4 @@ mkdocs-material>=9.0.0
 PyGithub
 python-frontmatter
 pyyaml
+markdown2>=2.4.0

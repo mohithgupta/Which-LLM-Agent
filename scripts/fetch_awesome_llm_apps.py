@@ -20,6 +20,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
 
+import markdown2
+
 
 @dataclass
 class Project:
@@ -207,6 +209,45 @@ def parse_main_readme(readme_path: str) -> Dict[str, List[Project]]:
         raise ValueError("No valid project entries found in README")
 
     return categories
+
+
+def convert_markdown_to_html(markdown_content: str, extras: Optional[List[str]] = None) -> str:
+    """
+    Convert markdown content to HTML using markdown2 library.
+
+    This function provides markdown-to-HTML conversion with support for various
+    markdown extras like tables, fenced code blocks, and more.
+
+    Args:
+        markdown_content: The markdown content to convert
+        extras: Optional list of markdown2 extras to enable (e.g., ['tables', 'fenced-code-blocks'])
+
+    Returns:
+        HTML string converted from markdown
+
+    Raises:
+        ValueError: If markdown_content is empty or None
+    """
+    logger = logging.getLogger(__name__)
+
+    if not markdown_content:
+        logger.error("Markdown content is empty or None")
+        raise ValueError("Markdown content cannot be empty or None")
+
+    # Default extras for enhanced markdown support
+    if extras is None:
+        extras = ['tables', 'fenced-code-blocks', 'code-friendly', 'header-ids']
+
+    try:
+        html = markdown2.markdown(
+            markdown_content,
+            extras=extras
+        )
+        logger.debug("Successfully converted markdown to HTML")
+        return html
+    except Exception as e:
+        logger.error(f"Failed to convert markdown to HTML: {e}")
+        raise
 
 
 def main() -> int:
