@@ -66,7 +66,10 @@ def setup_logging(log_level: str = "INFO") -> logging.Logger:
             logging.StreamHandler(sys.stdout)
         ]
     )
-    return logging.getLogger(__name__)
+    logger = logging.getLogger(__name__)
+    logger.info(f"Logging initialized at {log_level.upper()} level")
+    logger.debug("Detailed debug logging enabled")
+    return logger
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -76,6 +79,9 @@ def parse_arguments() -> argparse.Namespace:
     Returns:
         Parsed arguments namespace
     """
+    logger = logging.getLogger(__name__)
+    logger.debug("Parsing command-line arguments")
+
     parser = argparse.ArgumentParser(
         description="Fetch and process project data from awesome-llm-apps repository",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -130,7 +136,9 @@ Examples:
         help="GitHub Personal Access Token (default: from GITHUB_TOKEN env var)"
     )
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    logger.debug(f"Arguments parsed: output_dir={args.output_dir}, skip_cache={args.skip_cache}, dry_run={args.dry_run}, debug={args.debug}")
+    return args
 
 
 def get_github_client(token: str) -> Github:
@@ -771,6 +779,8 @@ def generate_project_output(
     output_filename = f"{safe_title}.md"
     output_path = category_dir / output_filename
 
+    logger.debug(f"Output path: {output_path}")
+
     # Build metadata dictionary
     metadata = {
         'title': project.title,
@@ -796,7 +806,7 @@ def generate_project_output(
     if logger.isEnabledFor(logging.INFO):
         import sys
         if '--dry-run' in sys.argv:
-            logger.info(f"[DRY-RUN] Would create: {output_path}")
+            logger.info(f"[DRY-RUN] Would create output file: {output_path}")
             logger.debug(f"  Metadata: title={project.title}, category={project.category}")
             return
 
@@ -833,8 +843,10 @@ def fetch_project_readme(github_client: Github, project: Project) -> Optional[st
 
     owner, repo = match.groups()
     repo_name = f"{owner}/{repo}"
+    logger.debug(f"Repository identifier: {repo_name}")
 
     # Tier 2a: Try GitHub API first
+    logger.debug(f"Attempting Tier 2a: GitHub API fetch for {project.title}")
     def fetch_via_api(repo_name: str) -> str:
         repo_obj = github_client.get_repo(repo_name)
         readme = repo_obj.get_readme()
@@ -843,18 +855,18 @@ def fetch_project_readme(github_client: Github, project: Project) -> Optional[st
     content = fetch_with_retry(github_client, fetch_via_api, repo_name)
 
     if content:
-        logger.info(f"Successfully fetched README via API for {project.title}")
+        logger.info(f"Tier 2a (GitHub API) succeeded for {project.title}")
         return content
 
     # Tier 2b: Fallback to raw.githubusercontent.com
-    logger.info(f"API fetch failed for {project.title}, trying raw.githubusercontent.com")
+    logger.debug(f"Tier 2a failed, attempting Tier 2b: raw.githubusercontent.com for {project.title}")
     content = fetch_raw_readme(project.url)
 
     if content:
-        logger.info(f"Successfully fetched README via raw URL for {project.title}")
+        logger.info(f"Tier 2b (raw URL) succeeded for {project.title}")
         return content
 
-    logger.warning(f"Failed to fetch README for {project.title} using all methods")
+    logger.warning(f"Tier 2 (both API and raw URL) failed for {project.title}")
     return None
 
 
@@ -882,7 +894,7 @@ def process_project(
         True if project was processed successfully, False if all tiers failed
     """
     logger = logging.getLogger(__name__)
-    logger.info(f"Processing project: {project.title}")
+    logger.info(f"Processing project: {project.title} (category: {project.category})")
 
     # Check cache first
     readme_content = None
@@ -908,6 +920,7 @@ def process_project(
 
     if readme_content:
         # Tier 2 succeeded: Use README content
+        logger.info(f"Tier 2 (README fetch) succeeded for {project.title}")
         logger.debug(f"Using fetched README content for {project.title}")
         final_content = readme_content
         if project.description:
@@ -915,7 +928,7 @@ def process_project(
 
     else:
         # Tier 3: Fallback to Python AST metadata extraction
-        logger.info(f"README unavailable for {project.title}, attempting Python AST extraction")
+        logger.info(f"Tier 2 failed for {project.title}, attempting Tier 3 (Python AST extraction)")
 
         # Try to infer Python file URL from project URL
         # Common patterns: main.py, app.py, project_name.py
@@ -959,7 +972,7 @@ def process_project(
                         metadata = extract_python_metadata(temp_file)
 
                         if metadata and metadata.get('description'):
-                            logger.info(f"Successfully extracted Python metadata for {project.title}")
+                            logger.info(f"Tier 3 (Python AST) succeeded for {project.title}")
                             final_metadata['description'] = metadata['description']
                             final_metadata['python_metadata'] = metadata
 
@@ -1006,6 +1019,7 @@ def process_project(
     # If we still have no content, use catalog metadata as final fallback
     if not final_content:
         logger.warning(f"All tiers failed for {project.title}, using catalog metadata only")
+        logger.info(f"Using catalog metadata (Tier 1) for {project.title}")
         final_content = f"# {project.title}\n\n"
         if project.description:
             final_content += f"{project.description}\n\n"
@@ -1055,6 +1069,7 @@ def main() -> int:
 
     try:
         # Initialize GitHub client
+        logger.info("Initializing GitHub client")
         github_client = get_github_client(args.github_token)
 
         # Tier 1: Parse main README to extract project catalog
@@ -1071,21 +1086,29 @@ def main() -> int:
         logger.info(f"Found {len(categories)} categories with {total_projects} total projects")
 
         # Create output directory structure
+        logger.info("Creating output directory structure")
         create_output_structure(args.output_dir, categories)
 
         # Initialize cache for README content
         readme_cache = {} if not args.skip_cache else None
+        cache_status = "enabled" if readme_cache else "disabled (--skip-cache)"
+        logger.info(f"README caching {cache_status}")
 
         # Process each project through the three-tier strategy
         logger.info("Tier 2 & 3: Fetching project READMEs with fallback to Python AST")
+        logger.info(f"Starting to process {total_projects} projects across {len(categories)} categories")
         successful_count = 0
         failed_count = 0
 
         for category_name, projects in categories.items():
             logger.info(f"Processing category: {category_name} ({len(projects)} projects)")
 
-            for project in projects:
+            for idx, project in enumerate(projects, 1):
                 try:
+                    # Log progress every 10 projects or for the last project
+                    if idx % 10 == 0 or idx == len(projects):
+                        logger.debug(f"Progress: {idx}/{len(projects)} projects in category '{category_name}'")
+
                     success = process_project(
                         project,
                         github_client,
@@ -1102,13 +1125,17 @@ def main() -> int:
                     logger.error(f"Error processing project {project.title}: {e}", exc_info=True)
                     failed_count += 1
 
+            # Log category completion
+            logger.info(f"Completed category '{category_name}': {successful_count} successful, {failed_count} failed")
+
         # Log summary
         logger.info("=" * 60)
-        logger.info("Processing complete")
-        logger.info(f"Total projects: {total_projects}")
+        logger.info("Processing complete - Final Summary")
+        logger.info(f"Total projects processed: {total_projects}")
         logger.info(f"Successfully processed: {successful_count}")
         logger.info(f"Failed: {failed_count}")
-        logger.info(f"Success rate: {100 * successful_count / total_projects:.1f}%")
+        if total_projects > 0:
+            logger.info(f"Success rate: {100 * successful_count / total_projects:.1f}%")
         logger.info("=" * 60)
 
         if args.dry_run:
