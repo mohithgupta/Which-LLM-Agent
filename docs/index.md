@@ -1,6 +1,6 @@
 # Welcome to LLM Agents Search
 
-Explore our curated collection of **4+ LLM agents and tools** across **3 categories**.
+Explore our curated collection of **9+ LLM agents and tools** across **4 categories**.
 
 ## Featured Agents
 
@@ -34,6 +34,50 @@ Building applications with LLMs through composability
 
 </div>
 
+<div class="agent-card">
+
+**[LlamaIndex](AI Tools/LlamaIndex)**
+
+<span class="agent-category">AI Tools</span>
+
+Data framework for LLM applications
+
+[:material-github: View Repository](https://github.com/run-llama/llama_index){ .md-button }
+
+</div>
+
+</div>
+
+---
+
+### Agent Frameworks
+
+<div class="agent-card-grid">
+
+<div class="agent-card">
+
+**[AutoGen](Agent Frameworks/AutoGen)**
+
+<span class="agent-category">Agent Frameworks</span>
+
+Enabling the development of LLM applications using multiple agents
+
+[:material-github: View Repository](https://github.com/microsoft/autogen){ .md-button }
+
+</div>
+
+<div class="agent-card">
+
+**[CrewAI](Agent Frameworks/CrewAI)**
+
+<span class="agent-category">Agent Frameworks</span>
+
+Framework for orchestrating role-playing autonomous AI agents
+
+[:material-github: View Repository](https://github.com/joaomdmoura/crewAI){ .md-button }
+
+</div>
+
 </div>
 
 ---
@@ -54,6 +98,18 @@ A conversational AI system
 
 </div>
 
+<div class="agent-card">
+
+**[Transformer Chatbot](Chatbots/Transformer-Chatbot)**
+
+<span class="agent-category">Chatbots</span>
+
+A PyTorch implementation of a sequence-to-sequence model for chatbot
+
+[:material-github: View Repository](https://github.com/bentrevett/pytorch-seq2seq){ .md-button }
+
+</div>
+
 </div>
 
 ---
@@ -61,6 +117,18 @@ A conversational AI system
 ### Data Analysis
 
 <div class="agent-card-grid">
+
+<div class="agent-card">
+
+**[Code Interpreter](Data Analysis/Code-Interpreter)**
+
+<span class="agent-category">Data Analysis</span>
+
+Code interpreter API for LLMs
+
+[:material-github: View Repository](https://github.com/shroominic/codeinterpreter-api){ .md-button }
+
+</div>
 
 <div class="agent-card">
 
@@ -82,9 +150,10 @@ Pandas AI is a Python library that integrates LLMs into pandas
 
 The documentation is organized into the following categories:
 
-- **AI Tools** - 2 agents
-- **Chatbots** - 1 agent
-- **Data Analysis** - 1 agent
+- **AI Tools** - 3 agents
+- **Agent Frameworks** - 2 agents
+- **Chatbots** - 2 agents
+- **Data Analysis** - 2 agents
 
 ## Getting Started
 
