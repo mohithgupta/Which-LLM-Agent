@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+import frontmatter
 import markdown2
 from github import Github
 from github.GithubException import RateLimitExceededException
@@ -662,6 +663,79 @@ def create_output_structure(output_dir: str, categories: Dict[str, List[Project]
 
     except OSError as e:
         logger.error(f"Failed to create output directory structure: {e}")
+        raise
+
+
+def write_markdown_with_frontmatter(
+    output_path: str,
+    metadata: Dict[str, Any],
+    content: str
+) -> None:
+    """
+    Write a markdown file with YAML frontmatter using python-frontmatter library.
+
+    This function creates a markdown file with structured YAML frontmatter containing
+    metadata about the content. The frontmatter is delimited by '---' markers and
+    includes key-value pairs for title, description, category, URL, and other fields.
+
+    Args:
+        output_path: File path where the markdown file should be written
+        metadata: Dictionary containing metadata fields to include in frontmatter.
+                  Common fields include 'title', 'description', 'category', 'url'.
+        content: The markdown content body (after the frontmatter)
+
+    Raises:
+        OSError: If file writing fails due to permission or filesystem errors
+        ValueError: If metadata or content are invalid
+
+    Example:
+        >>> metadata = {
+        ...     'title': 'My Project',
+        ...     'description': 'A cool project',
+        ...     'category': 'AI Tools',
+        ...     'url': 'https://github.com/user/repo'
+        ... }
+        >>> content = '# Introduction\\n\\nThis is the content.'
+        >>> write_markdown_with_frontmatter('output/project.md', metadata, content)
+    """
+    logger = logging.getLogger(__name__)
+    logger.debug(f"Writing markdown with frontmatter to: {output_path}")
+
+    # Validate inputs
+    if not metadata:
+        logger.warning("Metadata dictionary is empty")
+    if not isinstance(metadata, dict):
+        logger.error("Metadata must be a dictionary")
+        raise ValueError("Metadata must be a dictionary")
+    if not isinstance(content, str):
+        logger.error("Content must be a string")
+        raise ValueError("Content must be a string")
+
+    try:
+        # Create frontmatter Post object with metadata and content
+        post = frontmatter.Post(content, **metadata)
+
+        # Ensure output directory exists
+        output_file = Path(output_path)
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # Convert to string with frontmatter and write to file
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(frontmatter.dumps(post))
+
+        logger.info(f"Successfully wrote markdown file: {output_path}")
+
+        # Log metadata fields for debugging
+        if logger.isEnabledFor(logging.DEBUG):
+            metadata_keys = ', '.join(metadata.keys())
+            logger.debug(f"Frontmatter fields: {metadata_keys}")
+            logger.debug(f"Content length: {len(content)} characters")
+
+    except OSError as e:
+        logger.error(f"Failed to write file {output_path}: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error writing markdown file {output_path}: {e}")
         raise
 
 
