@@ -120,6 +120,7 @@ extra_css:
 # Build directories
 exclude_docs: |
   /.*
+  /awesome-llm-apps/README.md
 
 # Validation
 validation:

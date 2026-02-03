@@ -296,8 +296,9 @@ def generate_agent_card(agent: AgentMetadata, category: str) -> str:
     """
     # Create relative link from docs/index.md to agent page
     # Agent files are in output/<category>/<agent>.md
-    # We need to link to ../output/<category>/<agent>
-    relative_link = f"output/{agent.file_path.replace('.md', '')}/"
+    # We need to link to ../output/<category>/<agent>.md or just output/<category>/<agent>
+    # Normalize path separators to forward slashes for web URLs
+    relative_link = agent.file_path.replace('\\', '/').replace('.md', '')
 
     # Use description or a fallback
     description = agent.description if agent.description else "No description available"
@@ -372,15 +373,15 @@ The documentation is organized into the following categories:
 
 """
 
-    # Add navigation links
+    # Add category overview (without links)
     for category_name in sorted(agents_by_category.keys()):
         agents = agents_by_category[category_name]
-        markdown += f"- **[{category_name}]({category_name}/)** - {len(agents)} agents\n"
+        markdown += f"- **{category_name}** - {len(agents)} agent{'s' if len(agents) != 1 else ''}\n"
 
     markdown += """
 ## Getting Started
 
-Browse the categories above or use the search to find specific agents. Each agent page includes:
+Browse the agent cards above or use the search to find specific agents. Each agent page includes:
 - Detailed description
 - GitHub repository link
 - Installation instructions
