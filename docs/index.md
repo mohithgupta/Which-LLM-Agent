@@ -14,7 +14,7 @@ Discover the most popular and innovative LLM agents, frameworks, and tools.
 
 **[AutoGPT](AI Tools/AutoGPT)**
 
-<span class="agent-category">AI Tools</span>
+<span class="agent-category agent-category--ai-tools">AI Tools</span>
 
 An experimental open-source attempt to make GPT-4 fully autonomous
 
@@ -26,7 +26,7 @@ An experimental open-source attempt to make GPT-4 fully autonomous
 
 **[LangChain](AI Tools/LangChain)**
 
-<span class="agent-category">AI Tools</span>
+<span class="agent-category agent-category--ai-tools">AI Tools</span>
 
 Building applications with LLMs through composability
 
@@ -38,7 +38,7 @@ Building applications with LLMs through composability
 
 **[LlamaIndex](AI Tools/LlamaIndex)**
 
-<span class="agent-category">AI Tools</span>
+<span class="agent-category agent-category--ai-tools">AI Tools</span>
 
 Data framework for LLM applications
 
@@ -58,7 +58,7 @@ Data framework for LLM applications
 
 **[AutoGen](Agent Frameworks/AutoGen)**
 
-<span class="agent-category">Agent Frameworks</span>
+<span class="agent-category agent-category--frameworks">Agent Frameworks</span>
 
 Enabling the development of LLM applications using multiple agents
 
@@ -70,7 +70,7 @@ Enabling the development of LLM applications using multiple agents
 
 **[CrewAI](Agent Frameworks/CrewAI)**
 
-<span class="agent-category">Agent Frameworks</span>
+<span class="agent-category agent-category--frameworks">Agent Frameworks</span>
 
 Framework for orchestrating role-playing autonomous AI agents
 
@@ -90,7 +90,7 @@ Framework for orchestrating role-playing autonomous AI agents
 
 **[ChatGPT-Clone](Chatbots/ChatGPT-Clone)**
 
-<span class="agent-category">Chatbots</span>
+<span class="agent-category agent-category--chatbots">Chatbots</span>
 
 A conversational AI system
 
@@ -102,7 +102,7 @@ A conversational AI system
 
 **[Transformer Chatbot](Chatbots/Transformer-Chatbot)**
 
-<span class="agent-category">Chatbots</span>
+<span class="agent-category agent-category--chatbots">Chatbots</span>
 
 A PyTorch implementation of a sequence-to-sequence model for chatbot
 
@@ -122,7 +122,7 @@ A PyTorch implementation of a sequence-to-sequence model for chatbot
 
 **[Code Interpreter](Data Analysis/Code-Interpreter)**
 
-<span class="agent-category">Data Analysis</span>
+<span class="agent-category agent-category--data">Data Analysis</span>
 
 Code interpreter API for LLMs
 
@@ -134,7 +134,7 @@ Code interpreter API for LLMs
 
 **[Pandas-AI](Data Analysis/Pandas-AI)**
 
-<span class="agent-category">Data Analysis</span>
+<span class="agent-category agent-category--data">Data Analysis</span>
 
 Pandas AI is a Python library that integrates LLMs into pandas
 
