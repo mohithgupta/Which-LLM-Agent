@@ -1,0 +1,140 @@
+/* Agent Card Grid Styles */
+
+/* Agent Card Grid Container - CSS Grid Layout */
+.agent-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+  width: 100%;
+}
+
+/* Agent Card Component */
+.agent-card {
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.5rem;
+  background-color: var(--md-default-bg-color);
+  transition: all 0.2s ease-in-out;
+  height: 100%;
+}
+
+/* Card Hover Effect */
+.agent-card:hover {
+  border-color: var(--md-primary-fg-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+/* Card Title Link */
+.agent-card strong a {
+  color: var(--md-default-fg-color);
+  font-size: 1.2rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.2s ease-in-out;
+}
+
+.agent-card strong a:hover {
+  color: var(--md-primary-fg-color);
+}
+
+/* Category Badge */
+.agent-category {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  margin: 0.75rem 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--md-primary-bg-color);
+  background-color: var(--md-primary-fg-color);
+  border-radius: 1rem;
+  align-self: flex-start;
+}
+
+/* Card Description */
+.agent-card p {
+  flex-grow: 1;
+  margin: 0.5rem 0 1rem 0;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+/* Material Button Styling in Cards */
+.agent-card .md-button {
+  margin-top: auto;
+  margin-bottom: 0;
+}
+
+/* Responsive Design - Mobile First */
+
+/* Small devices (phones, less than 600px) */
+@media (max-width: 599px) {
+  .agent-card-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .agent-card {
+    padding: 1rem;
+  }
+
+  .agent-card strong a {
+    font-size: 1.1rem;
+  }
+}
+
+/* Medium devices (tablets, 600px to 959px) */
+@media (min-width: 600px) and (max-width: 959px) {
+  .agent-card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1.25rem;
+  }
+}
+
+/* Large devices (desktops, 960px and up) */
+@media (min-width: 960px) {
+  .agent-card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+  }
+}
+
+/* Extra large devices (large desktops, 1280px and up) */
+@media (min-width: 1280px) {
+  .agent-card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 2rem;
+  }
+}
+
+/* Dark Mode Adjustments */
+[data-md-color-scheme="slate"] .agent-card {
+  border-color: var(--md-default-fg-color--lightest);
+  background-color: var(--md-default-bg-color);
+}
+
+[data-md-color-scheme="slate"] .agent-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Print Styles */
+@media print {
+  .agent-card-grid {
+    display: block;
+  }
+
+  .agent-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .agent-card .md-button {
+    display: none;
+  }
+}

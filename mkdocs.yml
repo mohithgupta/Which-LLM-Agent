@@ -51,6 +51,7 @@ plugins:
   - search:
       lang:
         - en
+      separator: '[\s\-\.]+'
 
 # Navigation structure
 nav:
