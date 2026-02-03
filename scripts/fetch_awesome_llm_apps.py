@@ -597,16 +597,14 @@ def extract_python_metadata(file_path: str) -> Optional[Dict[str, Any]]:
         return metadata
 
     except SyntaxError as e:
-        logger.warning(f"Syntax error in {file_path}: {e}. Returning minimal metadata.")
-        # Return minimal metadata dict instead of None
-        return metadata
+        logger.warning(f"Syntax error in {file_path}: {e}. File cannot be parsed.")
+        return None
     except IOError as e:
         logger.error(f"Failed to read file {file_path}: {e}")
         return None
     except Exception as e:
         logger.error(f"Unexpected error extracting metadata from {file_path}: {e}")
-        # Return minimal metadata dict instead of None for unexpected errors
-        return metadata
+        return None
 
 
 def main() -> int:
