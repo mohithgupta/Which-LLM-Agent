@@ -1,6 +1,6 @@
 # Welcome to LLM Agents Search
 
-Explore our curated collection of **9+ LLM agents and tools** across **4 categories**.
+Explore our curated collection of **13+ LLM agents and tools** across **4 categories**.
 
 ## Featured Agents
 
@@ -12,7 +12,7 @@ Discover the most popular and innovative LLM agents, frameworks, and tools.
 
 <article class="agent-card" aria-labelledby="card-autogpt-title">
 
-### [AutoGPT](AI Tools/AutoGPT) { #card-autogpt-title }
+**[AutoGPT](../output/AI%20Tools/AutoGPT)**
 
 <span class="agent-category agent-category--ai-tools" role="status" aria-label="Category: AI Tools">AI Tools</span>
 
@@ -24,11 +24,11 @@ An experimental open-source attempt to make GPT-4 fully autonomous
 
 <article class="agent-card" aria-labelledby="card-langchain-title">
 
-### [LangChain](AI Tools/LangChain) { #card-langchain-title }
+**[LangChain](../output/AI%20Tools/LangChain)**
 
 <span class="agent-category agent-category--ai-tools" role="status" aria-label="Category: AI Tools">AI Tools</span>
 
-Building applications with LLMs through composability
+Framework for developing applications powered by language models
 
 [:material-github: View Repository](https://github.com/langchain-ai/langchain){ .md-button aria-label="View LangChain repository on GitHub" }
 
@@ -36,7 +36,7 @@ Building applications with LLMs through composability
 
 <article class="agent-card" aria-labelledby="card-llamaindex-title">
 
-### [LlamaIndex](AI Tools/LlamaIndex) { #card-llamaindex-title }
+**[LlamaIndex](../output/AI%20Tools/LlamaIndex)**
 
 <span class="agent-category agent-category--ai-tools" role="status" aria-label="Category: AI Tools">AI Tools</span>
 
@@ -56,7 +56,7 @@ Data framework for LLM applications
 
 <article class="agent-card" aria-labelledby="card-autogen-title">
 
-### [AutoGen](Agent Frameworks/AutoGen) { #card-autogen-title }
+**[AutoGen](../output/Agent%20Frameworks/AutoGen)**
 
 <span class="agent-category agent-category--frameworks" role="status" aria-label="Category: Agent Frameworks">Agent Frameworks</span>
 
@@ -68,7 +68,7 @@ Enabling the development of LLM applications using multiple agents
 
 <article class="agent-card" aria-labelledby="card-crewai-title">
 
-### [CrewAI](Agent Frameworks/CrewAI) { #card-crewai-title }
+**[CrewAI](../output/Agent%20Frameworks/CrewAI)**
 
 <span class="agent-category agent-category--frameworks" role="status" aria-label="Category: Agent Frameworks">Agent Frameworks</span>
 
@@ -88,7 +88,19 @@ Framework for orchestrating role-playing autonomous AI agents
 
 <article class="agent-card" aria-labelledby="card-chatgpt-title">
 
-### [ChatGPT-Clone](Chatbots/ChatGPT-Clone) { #card-chatgpt-title }
+**[ChatGPT Clone](../output/Chatbots/ChatGPT_Clone)**
+
+<span class="agent-category">Chatbots</span>
+
+ChatGPT clone built with React and Spring Boot
+
+[:material-github: View Repository](https://github.com/atlassian/react-spring-boot-chatbot){ .md-button }
+
+</div>
+
+<div class="agent-card">
+
+**[ChatGPT-Clone](../output/Chatbots/ChatGPT-Clone)**
 
 <span class="agent-category agent-category--chatbots" role="status" aria-label="Category: Chatbots">Chatbots</span>
 
@@ -100,7 +112,19 @@ A conversational AI system
 
 <article class="agent-card" aria-labelledby="card-transformer-title">
 
-### [Transformer Chatbot](Chatbots/Transformer-Chatbot) { #card-transformer-title }
+**[Transformer Chatbot](../output/Chatbots/Transformer-Chatbot)**
+
+<span class="agent-category">Chatbots</span>
+
+A PyTorch implementation of a sequence-to-sequence model for chatbot
+
+[:material-github: View Repository](https://github.com/bentrevett/pytorch-seq2seq){ .md-button }
+
+</div>
+
+<div class="agent-card">
+
+**[Transformer Chatbot](../output/Chatbots/Transformer_Chatbot)**
 
 <span class="agent-category agent-category--chatbots" role="status" aria-label="Category: Chatbots">Chatbots</span>
 
@@ -120,7 +144,19 @@ A PyTorch implementation of a sequence-to-sequence model for chatbot
 
 <article class="agent-card" aria-labelledby="card-codeinterpreter-title">
 
-### [Code Interpreter](Data Analysis/Code-Interpreter) { #card-codeinterpreter-title }
+**[Code Interpreter](../output/Data%20Analysis/Code-Interpreter)**
+
+<span class="agent-category">Data Analysis</span>
+
+Code interpreter API for LLMs
+
+[:material-github: View Repository](https://github.com/shroominic/codeinterpreter-api){ .md-button }
+
+</div>
+
+<div class="agent-card">
+
+**[Code Interpreter](../output/Data%20Analysis/Code_Interpreter)**
 
 <span class="agent-category agent-category--data" role="status" aria-label="Category: Data Analysis">Data Analysis</span>
 
@@ -132,7 +168,19 @@ Code interpreter API for LLMs
 
 <article class="agent-card" aria-labelledby="card-pandasai-title">
 
-### [Pandas-AI](Data Analysis/Pandas-AI) { #card-pandasai-title }
+**[Pandas AI](../output/Data%20Analysis/Pandas_AI)**
+
+<span class="agent-category">Data Analysis</span>
+
+Pandas AI is a library that integrates LLMs into pandas
+
+[:material-github: View Repository](https://github.com/gventuri/pandas-ai){ .md-button }
+
+</div>
+
+<div class="agent-card">
+
+**[Pandas-AI](../output/Data%20Analysis/Pandas-AI)**
 
 <span class="agent-category agent-category--data" role="status" aria-label="Category: Data Analysis">Data Analysis</span>
 
@@ -152,8 +200,8 @@ The documentation is organized into the following categories:
 
 - **AI Tools** - 3 agents
 - **Agent Frameworks** - 2 agents
-- **Chatbots** - 2 agents
-- **Data Analysis** - 2 agents
+- **Chatbots** - 4 agents
+- **Data Analysis** - 4 agents
 
 ## Getting Started
 
