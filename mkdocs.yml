@@ -45,6 +45,9 @@ theme:
     - content.tabs.link
   icon:
     repo: fontawesome/brands/github
+  font:
+    text: Roboto
+    code: Roboto Mono
 
 # Plugins
 plugins:
