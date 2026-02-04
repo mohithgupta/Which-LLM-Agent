@@ -1,4 +1,30 @@
-/* Agent Card Grid Styles */
+/* ============================================================================
+   Skip Navigation Link - Accessibility Enhancement
+   ============================================================================ */
+
+/* Skip to main content link for keyboard users */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 0;
+  background: var(--md-primary-fg-color);
+  color: var(--md-primary-bg-color);
+  padding: 1rem 1.5rem;
+  z-index: 9999;
+  text-decoration: none;
+  font-weight: 600;
+  transition: top 0.3s ease-in-out;
+}
+
+.skip-link:focus {
+  top: 0;
+  outline: 3px solid var(--md-accent-fg-color);
+  outline-offset: 2px;
+}
+
+/* ============================================================================
+   Agent Card Grid Styles
+   ============================================================================ */
 
 /* Agent Card Grid Container - CSS Grid Layout */
 .agent-card-grid {
@@ -7,9 +33,11 @@
   gap: 1.5rem;
   margin: 2rem 0;
   width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
-/* Agent Card Component */
+/* Agent Card Component - Semantic HTML with article element */
 .agent-card {
   display: flex;
   flex-direction: column;
@@ -17,31 +45,55 @@
   border: 1px solid var(--md-default-fg-color--lightest);
   border-radius: 0.5rem;
   background-color: var(--md-default-bg-color);
-  transition: all 0.2s ease-in-out;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   height: 100%;
+}
+
+/* Agent card title as heading - maintain accessibility with proper heading level */
+.agent-card h3 {
+  margin: 0;
+  padding: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 /* Card Hover Effect */
 .agent-card:hover {
   border-color: var(--md-primary-fg-color);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  transform: translateY(-3px);
 }
 
-/* Card Title Link */
-.agent-card strong a {
+/* Card Focus Effect for Accessibility */
+.agent-card:focus-within {
+  outline: 2px solid var(--md-accent-fg-color);
+  outline-offset: 2px;
+}
+
+/* Card Title Link - Now within h3 element */
+.agent-card h3 a {
   color: var(--md-default-fg-color);
   font-size: 1.2rem;
   font-weight: 600;
   text-decoration: none;
   transition: color 0.2s ease-in-out;
+  position: relative;
+  display: block;
 }
 
-.agent-card strong a:hover {
+.agent-card h3 a:hover {
   color: var(--md-primary-fg-color);
 }
 
-/* Category Badge */
+.agent-card h3 a:focus {
+  outline: 2px solid var(--md-accent-fg-color);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Category Badge - Base Styles */
 .agent-category {
   display: inline-block;
   padding: 0.25rem 0.75rem;
@@ -54,6 +106,86 @@
   background-color: var(--md-primary-fg-color);
   border-radius: 1rem;
   align-self: flex-start;
+}
+
+/* Category Badge Color Variations - BEM Modifiers */
+
+/* AI Tools - Indigo */
+.agent-category--ai-tools {
+  background-color: #3F51B5;
+  color: #FFFFFF;
+}
+
+/* Agent Frameworks - Purple */
+.agent-category--frameworks {
+  background-color: #9C27B0;
+  color: #FFFFFF;
+}
+
+/* Chatbots - Blue */
+.agent-category--chatbots {
+  background-color: #2196F3;
+  color: #FFFFFF;
+}
+
+/* Data Analysis - Teal */
+.agent-category--data {
+  background-color: #009688;
+  color: #FFFFFF;
+}
+
+/* RAG Agents - Green */
+.agent-category--rag {
+  background-color: #4CAF50;
+  color: #FFFFFF;
+}
+
+/* Multi Agent Teams - Orange */
+.agent-category--multi-agent {
+  background-color: #FF9800;
+  color: #FFFFFF;
+}
+
+/* Voice AI - Deep Purple */
+.agent-category--voice {
+  background-color: #673AB7;
+  color: #FFFFFF;
+}
+
+/* Memory Tutorials - Amber */
+.agent-category--memory {
+  background-color: #FFC107;
+  color: #000000;
+}
+
+/* Advanced AI - Red */
+.agent-category--advanced {
+  background-color: #F44336;
+  color: #FFFFFF;
+}
+
+/* Starter AI - Light Blue */
+.agent-category--starter {
+  background-color: #03A9F4;
+  color: #FFFFFF;
+}
+
+/* Chat with X - Pink */
+.agent-category--chat {
+  background-color: #E91E63;
+  color: #FFFFFF;
+}
+
+/* MCP Agents - Cyan */
+.agent-category--mcp {
+  background-color: #00BCD4;
+  color: #FFFFFF;
+}
+
+/* Awesome LLM Apps - Lime */
+.agent-category--awesome {
+  background-color: #CDDC39;
+  color: #000000;
 }
 
 /* Card Description */
@@ -78,22 +210,71 @@
   .agent-card-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
+    padding: 0 0.5rem;
+    margin-left: -0.5rem;
+    margin-right: -0.5rem;
   }
 
   .agent-card {
     padding: 1rem;
+    border-radius: 0.375rem;
   }
 
-  .agent-card strong a {
-    font-size: 1.1rem;
+  .agent-card h3 a {
+    font-size: 1.05rem;
+  }
+
+  .agent-card p {
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  .agent-category {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.6rem;
+    margin: 0.5rem 0;
+  }
+
+  .agent-card .md-button {
+    font-size: 0.9rem;
+    padding: 0.5rem 1rem;
   }
 }
 
 /* Medium devices (tablets, 600px to 959px) */
 @media (min-width: 600px) and (max-width: 959px) {
   .agent-card-grid {
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 1.25rem;
+    padding: 0;
+  }
+
+  .agent-card {
+    padding: 1.25rem;
+  }
+
+  .agent-card h3 a {
+    font-size: 1.15rem;
+  }
+
+  .agent-card p {
+    font-size: 0.925rem;
+  }
+}
+
+/* Small tablets (portrait mode, 600px to 767px) */
+@media (min-width: 600px) and (max-width: 767px) {
+  .agent-card-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+}
+
+/* Large tablets (landscape mode, 768px to 959px) */
+@media (min-width: 768px) and (max-width: 959px) {
+  .agent-card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
   }
 }
 
@@ -117,10 +298,11 @@
 [data-md-color-scheme="slate"] .agent-card {
   border-color: var(--md-default-fg-color--lightest);
   background-color: var(--md-default-bg-color);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 [data-md-color-scheme="slate"] .agent-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
 }
 
 /* Print Styles */
@@ -136,5 +318,127 @@
 
   .agent-card .md-button {
     display: none;
+  }
+}
+
+/* ============================================================================
+   Section Spacing and Dividers
+   ============================================================================ */
+
+/* Section Spacing - Add breathing room between content sections */
+.md-typeset section {
+  margin-top: 2.5rem;
+  margin-bottom: 2.5rem;
+}
+
+/* Reduce spacing for nested sections */
+.md-typeset section section {
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Add spacing before and after headings */
+.md-typeset h1 {
+  margin-top: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.md-typeset h2 {
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+}
+
+.md-typeset h3 {
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.md-typeset h4 {
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Horizontal Rule/Divider Styles - Subtle and clean */
+.md-typeset hr {
+  border: 0;
+  height: 1px;
+  background-image: linear-gradient(
+    to right,
+    transparent,
+    var(--md-default-fg-color--lighter),
+    transparent
+  );
+  margin: 3rem 0;
+  opacity: 0.5;
+}
+
+/* Alternative divider using double line for major sections */
+.md-typeset hr.divider-major {
+  border: 0;
+  height: 2px;
+  background-image: linear-gradient(
+    to right,
+    transparent,
+    var(--md-default-fg-color--light),
+    transparent
+  );
+  margin: 4rem 0;
+  opacity: 0.3;
+}
+
+/* Spacing for paragraphs and block elements */
+.md-typeset p {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Spacing for lists */
+.md-typeset ul,
+.md-typeset ol {
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Spacing for code blocks */
+.md-typeset pre {
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Spacing for blockquotes */
+.md-typeset blockquote {
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Spacing for tables */
+.md-typeset table {
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Responsive spacing adjustments */
+@media (max-width: 768px) {
+  .md-typeset section {
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  .md-typeset h1 {
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .md-typeset h2 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .md-typeset hr {
+    margin: 2rem 0;
+  }
+
+  .md-typeset hr.divider-major {
+    margin: 3rem 0;
   }
 }
